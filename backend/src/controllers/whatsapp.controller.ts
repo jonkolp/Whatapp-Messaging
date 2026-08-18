@@ -32,6 +32,9 @@ export class WhatsAppController {
   static async getOpenWaHealth(req: Request, res: Response): Promise<void> {
     try {
       const { gatewayUrl = config.openWaGatewayUrl } = req.query;
+      const clientKey = (req.headers['x-openwa-key'] as string) || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
       const health = await OpenWaService.checkHealth(gatewayUrl as string);
       res.json({ success: true, health });
     } catch (err: any) {
@@ -46,6 +49,9 @@ export class WhatsAppController {
   static async getOpenWaSessions(req: Request, res: Response): Promise<void> {
     try {
       const { gatewayUrl = config.openWaGatewayUrl } = req.query;
+      const clientKey = (req.headers['x-openwa-key'] as string) || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
       const sessions = await OpenWaService.listSessions(gatewayUrl as string);
       res.json({ success: true, sessions });
     } catch (err: any) {
@@ -61,6 +67,9 @@ export class WhatsAppController {
     try {
       const { sessionId } = req.params;
       const { gatewayUrl = config.openWaGatewayUrl } = req.query;
+      const clientKey = (req.headers['x-openwa-key'] as string) || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
       await OpenWaService.deleteSession(gatewayUrl as string, sessionId);
       res.json({ success: true, message: 'OpenWA session removed from engine.' });
     } catch (err: any) {
@@ -76,6 +85,9 @@ export class WhatsAppController {
     try {
       const { sessionId } = req.params;
       const { gatewayUrl = config.openWaGatewayUrl } = req.query;
+      const clientKey = (req.headers['x-openwa-key'] as string) || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
       const data = await OpenWaService.restartSession(gatewayUrl as string, sessionId);
       res.json({ success: true, message: 'OpenWA session engine restarted.', data });
     } catch (err: any) {
@@ -89,7 +101,10 @@ export class WhatsAppController {
    */
   static async startOpenWaSession(req: Request, res: Response): Promise<void> {
     try {
-      const { gatewayUrl = config.openWaGatewayUrl, accountName = 'WhatsApp Web', sessionId, forceNew } = req.body;
+      const { gatewayUrl = config.openWaGatewayUrl, accountName = 'WhatsApp Web', sessionId, forceNew, apiKey } = req.body;
+      const clientKey = (req.headers['x-openwa-key'] as string) || apiKey || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
       const cleanUrl = (gatewayUrl || config.openWaGatewayUrl).trim();
 
       const qrResult = await OpenWaService.fetchLiveQr({

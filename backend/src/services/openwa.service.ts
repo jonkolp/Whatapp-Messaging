@@ -42,6 +42,12 @@ export class OpenWaService {
     'openwa_master_key_12345678'
   ].filter(Boolean);
 
+  static addApiKey(key: string) {
+    if (key && !this.knownApiKeys.includes(key)) {
+      this.knownApiKeys.unshift(key);
+    }
+  }
+
   /**
    * Generates candidate target URLs to handle port 2785 (OpenWA backend/dashboard),
    * port 2886, port 8080, Docker networks, and localhost.

@@ -9,11 +9,15 @@ const api = axios.create({
   }
 });
 
-// Attach JWT token from localStorage to all requests
+// Attach JWT token and OpenWA API key from Netlify environment
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('whatsapp_token');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const openWaKey = (import.meta as any).env?.VITE_OPENWA_API_KEY;
+  if (openWaKey && config.headers) {
+    config.headers['x-openwa-key'] = openWaKey;
   }
   return config;
 });

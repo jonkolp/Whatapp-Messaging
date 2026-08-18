@@ -49,7 +49,7 @@ export const WhatsAppAccounts: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // open-wa QR Code State
-  const [qrGatewayUrl, setQrGatewayUrl] = useState('http://localhost:2785');
+  const [qrGatewayUrl, setQrGatewayUrl] = useState((import.meta as any).env?.VITE_OPENWA_GATEWAY_URL || 'http://localhost:2785');
   const [qrAccountName, setQrAccountName] = useState('WhatsApp Number');
   const [qrPhoneNumber, setQrPhoneNumber] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
