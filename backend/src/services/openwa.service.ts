@@ -468,10 +468,10 @@ export class OpenWaService {
     let qrDataUrl: string | null = null;
     let rawQrString: string | null = null;
 
-    // Retry up to 3 times with brief delays (Baileys may take 1-2s to emit QR on fresh start)
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    // Retry up to 8 times with delays (Baileys may take 2-5s to emit QR on fresh cloud container start)
+    for (let attempt = 1; attempt <= 8; attempt++) {
       try {
-        const qrRes = await axios.get(`${workingUrl}/api/sessions/${targetSession.id}/qr`, { headers, timeout: 3500 });
+        const qrRes = await axios.get(`${workingUrl}/api/sessions/${targetSession.id}/qr`, { headers, timeout: 4000 });
         if (qrRes.data?.qrCode) {
           qrDataUrl = qrRes.data.qrCode;
           break;
@@ -480,9 +480,25 @@ export class OpenWaService {
           break;
         }
       } catch (err: any) {
-        // If engine just initialized, wait 800ms and retry
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 800));
+        // Also check if session became authenticated during waiting
+        try {
+          const checkRes = await axios.get(`${workingUrl}/api/sessions/${targetSession.id}`, { headers, timeout: 2000 });
+          if (checkRes.data?.phone || checkRes.data?.status === 'ready' || checkRes.data?.status === 'authenticated') {
+            return {
+              success: true,
+              gatewayUrl: workingUrl,
+              isAuthenticated: true,
+              sessionId: targetSession.id,
+              sessionName: targetSession.name,
+              phoneNumber: checkRes.data.phone || undefined,
+              session: checkRes.data
+            };
+          }
+        } catch {}
+
+        // If QR not ready yet, wait 1000ms and retry
+        if (attempt < 8) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     }

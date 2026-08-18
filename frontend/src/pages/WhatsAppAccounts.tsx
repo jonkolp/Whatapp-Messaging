@@ -104,6 +104,38 @@ export const WhatsAppAccounts: React.FC = () => {
     checkOpenWaHealth();
   }, []);
 
+  // Auto-poll QR code every 2 seconds while QR modal is open and QR is not yet displayed or paired
+  useEffect(() => {
+    let interval: any = null;
+    if (showQrModal && !isSessionAuthenticated && !qrConfirmed) {
+      interval = setInterval(async () => {
+        try {
+          const nameToUse = qrAccountName || `Number-${accounts.length + 1}`;
+          const res = await api.post('/whatsapp/openwa/start-session', {
+            gatewayUrl: qrGatewayUrl,
+            accountName: nameToUse,
+            sessionId: activeSessionInfo?.sessionId,
+            forceNew: false
+          });
+          if (res.data?.success) {
+            setActiveSessionInfo(res.data);
+            if (res.data.isAuthenticated) {
+              setIsSessionAuthenticated(true);
+              if (res.data.phoneNumber) {
+                setQrPhoneNumber(res.data.phoneNumber.startsWith('+') ? res.data.phoneNumber : `+${res.data.phoneNumber}`);
+              }
+            } else if (res.data.qrDataUrl) {
+              setQrDataUrl(res.data.qrDataUrl);
+            }
+          }
+        } catch {}
+      }, 2000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showQrModal, isSessionAuthenticated, qrConfirmed, activeSessionInfo?.sessionId, qrGatewayUrl, qrAccountName, accounts.length]);
+
   // 1. Meta Cloud API Add
   const handleAddMetaAccount = async (e: React.FormEvent) => {
     e.preventDefault();
