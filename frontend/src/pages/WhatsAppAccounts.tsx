@@ -15,7 +15,8 @@ import {
   Server,
   Layers,
   RotateCcw,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import api from '../api';
 import { Header } from '../components/Header';
@@ -61,6 +62,7 @@ export const WhatsAppAccounts: React.FC = () => {
   const [qrConfirmed, setQrConfirmed] = useState(false);
   const [activeSessionInfo, setActiveSessionInfo] = useState<any>(null);
   const [isSessionAuthenticated, setIsSessionAuthenticated] = useState(false);
+  const [qrCountdown, setQrCountdown] = useState(25);
 
   // Test Message State
   const [testRecipient, setTestRecipient] = useState('');
@@ -176,24 +178,53 @@ export const WhatsAppAccounts: React.FC = () => {
     }
   };
 
+  // QR Countdown Timer: auto-refreshes when QR expires (25s cycle)
+  useEffect(() => {
+    let timer: any = null;
+    if (showQrModal && qrDataUrl && !isSessionAuthenticated && !qrConfirmed && !qrLoading) {
+      timer = setInterval(() => {
+        setQrCountdown((prev) => {
+          if (prev <= 1) {
+            handleFetchLiveQr(false);
+            return 25;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [showQrModal, qrDataUrl, isSessionAuthenticated, qrConfirmed, qrLoading]);
+
   // 2. Fetch live dynamic QR from open-wa service
   const handleFetchLiveQr = async (forceNewSession = false, customSessionName?: string) => {
     setQrLoading(true);
     setFormError('');
+    setQrCountdown(25);
     setIsSessionAuthenticated(false);
-    setActiveSessionInfo(null);
 
-    const nameToUse = customSessionName || qrAccountName || `Number-${accounts.length + 1}`;
+    if (forceNewSession) {
+      setQrDataUrl(''); // Clear previous QR to show active fresh generation spinner
+      setActiveSessionInfo(null);
+    }
+
+    const nameToUse = customSessionName || (forceNewSession ? `WhatsApp Number #${accounts.length + 1}` : qrAccountName) || `Number-${accounts.length + 1}`;
+    if (customSessionName || forceNewSession) {
+      setQrAccountName(nameToUse);
+    }
 
     try {
       const res = await api.post('/whatsapp/openwa/start-session', {
         gatewayUrl: qrGatewayUrl,
         accountName: nameToUse,
+        sessionId: forceNewSession ? undefined : activeSessionInfo?.sessionId,
         forceNew: forceNewSession
       });
 
       if (res.data.success) {
         setActiveSessionInfo(res.data);
+        setQrCountdown(25);
         if (res.data.isAuthenticated) {
           setIsSessionAuthenticated(true);
           if (res.data.phoneNumber) {
@@ -206,7 +237,7 @@ export const WhatsAppAccounts: React.FC = () => {
         }
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'open-wa service is offline or unreachable on port 2785.';
+      const msg = err.response?.data?.message || err.message || 'OpenWA cloud service is offline or unreachable.';
       setFormError(msg);
       setShowQrModal(true);
     } finally {
@@ -783,19 +814,40 @@ export const WhatsAppAccounts: React.FC = () => {
               <>
                 {/* Live QR Code Container */}
                 {qrDataUrl ? (
-                  <div style={{
-                    display: 'inline-block',
-                    padding: '16px',
-                    background: '#ffffff',
-                    borderRadius: '16px',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-                    marginBottom: '16px'
-                  }}>
-                    <img
-                      src={qrDataUrl}
-                      alt="WhatsApp Web Live QR Code"
-                      style={{ width: '240px', height: '240px', display: 'block' }}
-                    />
+                  <div>
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '16px',
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                      marginBottom: '12px'
+                    }}>
+                      <img
+                        src={qrDataUrl}
+                        alt="WhatsApp Web Live QR Code"
+                        style={{ width: '240px', height: '240px', display: 'block' }}
+                      />
+                    </div>
+
+                    {/* QR Expiration & Auto-Refresh Countdown Bar */}
+                    <div style={{ maxWidth: '272px', margin: '0 auto 16px auto', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Clock size={13} color={qrCountdown <= 5 ? '#f87171' : 'var(--accent-emerald)'} />
+                          <span>QR expires in: <strong style={{ color: qrCountdown <= 5 ? '#f87171' : 'var(--text-primary)' }}>{qrCountdown}s</strong></span>
+                        </span>
+                        <span style={{ fontSize: '0.72rem' }}>{qrLoading ? 'Regenerating...' : 'Auto-refreshes'}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '9999px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${(qrCountdown / 25) * 100}%`,
+                          height: '100%',
+                          background: qrCountdown <= 5 ? '#f87171' : 'var(--accent-emerald)',
+                          transition: 'width 1s linear, background-color 0.3s ease'
+                        }} />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div style={{
@@ -807,32 +859,39 @@ export const WhatsAppAccounts: React.FC = () => {
                     fontSize: '0.85rem'
                   }}>
                     <RefreshCw size={28} className="spin" style={{ margin: '0 auto 12px auto' }} />
-                    <span style={{ display: 'block', fontWeight: 600, color: 'var(--text-primary)' }}>Loading Live QR Code...</span>
+                    <span style={{ display: 'block', fontWeight: 600, color: 'var(--text-primary)' }}>Generating Live QR Code...</span>
                     <span style={{ fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>Connecting to cloud WhatsApp Web engine</span>
                   </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn-secondary"
                     onClick={() => handleFetchLiveQr(false)}
-                    disabled={qrLoading}
-                    style={{ fontSize: '0.825rem', padding: '6px 14px' }}
+                    disabled={qrLoading || !qrDataUrl}
+                    style={{
+                      fontSize: '0.825rem',
+                      padding: '7px 16px',
+                      opacity: (qrLoading || !qrDataUrl) ? 0.6 : 1,
+                      cursor: (qrLoading || !qrDataUrl) ? 'not-allowed' : 'pointer'
+                    }}
+                    title={!qrDataUrl ? 'Waiting for QR code to be generated...' : 'Instantly request a fresh QR code'}
                   >
                     <RefreshCw size={14} className={qrLoading ? 'spin' : ''} />
-                    <span>Refresh QR</span>
+                    <span>{qrLoading ? 'Generating QR...' : 'Refresh QR'}</span>
                   </button>
 
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={() => handleFetchLiveQr(true, `Number-${accounts.length + 1}`)}
+                    onClick={() => handleFetchLiveQr(true, `WhatsApp Number #${accounts.length + 1}`)}
                     disabled={qrLoading}
-                    style={{ fontSize: '0.825rem', padding: '6px 14px' }}
+                    style={{ fontSize: '0.825rem', padding: '7px 16px' }}
+                    title="Create an additional WhatsApp account slot to pair a 2nd or 3rd phone number"
                   >
                     <Plus size={14} />
-                    <span>New Session</span>
+                    <span>Pair Additional Number</span>
                   </button>
                 </div>
 
