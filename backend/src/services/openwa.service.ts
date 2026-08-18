@@ -100,6 +100,24 @@ export class OpenWaService {
   }
 
   /**
+   * Sanitizes session name to conform to OpenWA /^[a-zA-Z0-9-]+$/ requirement (min 3 chars, max 50 chars)
+   */
+  private static sanitizeSessionName(rawName?: string): string {
+    if (!rawName) return `session-${Date.now()}`;
+    let clean = rawName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (!clean || clean.length < 3) {
+      clean = `session-${clean || Date.now()}`;
+    }
+    return clean.slice(0, 50);
+  }
+
+  /**
    * Finds the first active, reachable open-wa URL among all candidates
    */
   static async resolveWorkingUrl(requestedUrl: string = 'http://localhost:2785'): Promise<string | null> {
@@ -212,10 +230,11 @@ export class OpenWaService {
    */
   static async createSession(gatewayUrl: string = 'http://localhost:2785', sessionName: string = 'session'): Promise<any> {
     const workingUrl = (await this.resolveWorkingUrl(gatewayUrl)) || gatewayUrl.replace(/\/+$/, '');
+    const cleanName = this.sanitizeSessionName(sessionName);
     for (const key of this.knownApiKeys) {
       const headers = this.getHeaders(key);
       try {
-        const res = await axios.post(`${workingUrl}/api/sessions`, { name: sessionName }, { headers, timeout: 5000 });
+        const res = await axios.post(`${workingUrl}/api/sessions`, { name: cleanName }, { headers, timeout: 5000 });
         if (res.data && res.data.id) {
           try {
             await axios.post(`${workingUrl}/api/sessions/${res.data.id}/start`, {}, { headers, timeout: 5000 });
@@ -377,7 +396,7 @@ export class OpenWaService {
     // If forceNew requested or sessionName explicitly provided and not found
     if ((opts.forceNew || (!targetSession && opts.sessionName)) && (!opts.sessionId)) {
       try {
-        const newName = opts.sessionName || `session-${Date.now()}`;
+        const newName = this.sanitizeSessionName(opts.sessionName);
         const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 5000 });
         if (createRes.data?.id) {
           targetSession = createRes.data;
