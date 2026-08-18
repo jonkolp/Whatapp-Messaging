@@ -486,7 +486,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   className="form-input"
                   placeholder="e.g. Sales Support Line"
                   value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAccountName(e.target.value)}
                   required
                 />
               </div>
@@ -498,7 +498,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   className="form-input"
                   placeholder="+966500000000"
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhoneNumber(e.target.value)}
                   required
                 />
               </div>
@@ -509,7 +509,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   type="text"
                   className="form-input"
                   value={phoneNumberId}
-                  onChange={(e) => setPhoneNumberId(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhoneNumberId(e.target.value)}
                   required
                 />
               </div>
@@ -520,7 +520,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   type="text"
                   className="form-input"
                   value={wabaId}
-                  onChange={(e) => setWabaId(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWabaId(e.target.value)}
                   required
                 />
               </div>
@@ -531,7 +531,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   type="password"
                   className="form-input"
                   value={accessToken}
-                  onChange={(e) => setAccessToken(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAccessToken(e.target.value)}
                   required
                 />
               </div>
@@ -640,7 +640,7 @@ export const WhatsAppAccounts: React.FC = () => {
                       type="text"
                       className="form-input"
                       value={qrAccountName}
-                      onChange={(e) => setQrAccountName(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrAccountName(e.target.value)}
                       required
                     />
                   </div>
@@ -652,7 +652,7 @@ export const WhatsAppAccounts: React.FC = () => {
                       className="form-input"
                       placeholder="+966500000001"
                       value={qrPhoneNumber}
-                      onChange={(e) => setQrPhoneNumber(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrPhoneNumber(e.target.value)}
                       required
                     />
                   </div>
@@ -757,7 +757,7 @@ export const WhatsAppAccounts: React.FC = () => {
                       type="text"
                       className="form-input"
                       value={qrAccountName}
-                      onChange={(e) => setQrAccountName(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrAccountName(e.target.value)}
                       required
                     />
                   </div>
@@ -769,7 +769,7 @@ export const WhatsAppAccounts: React.FC = () => {
                       className="form-input"
                       placeholder="+966500000001"
                       value={qrPhoneNumber}
-                      onChange={(e) => setQrPhoneNumber(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrPhoneNumber(e.target.value)}
                       required
                     />
                   </div>
@@ -845,7 +845,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   className="form-input"
                   placeholder="+966500000001"
                   value={testRecipient}
-                  onChange={(e) => setTestRecipient(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTestRecipient(e.target.value)}
                   required
                 />
               </div>
@@ -856,7 +856,7 @@ export const WhatsAppAccounts: React.FC = () => {
                   className="form-textarea"
                   rows={3}
                   value={testMsg}
-                  onChange={(e) => setTestMsg(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTestMsg(e.target.value)}
                   required
                 />
               </div>
