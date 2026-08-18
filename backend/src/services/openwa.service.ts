@@ -49,32 +49,62 @@ export class OpenWaService {
   }
 
   /**
-   * Generates candidate target URLs to handle port 2785 (OpenWA backend/dashboard),
-   * port 2886, port 8080, Docker networks, and localhost.
+   * Normalizes a gateway URL to ensure proper protocol and format
+   */
+  private static formatUrl(rawUrl: string): string {
+    let url = (rawUrl || '').trim().replace(/\/+$/, '');
+    if (!url) return '';
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `http://${url}`;
+    }
+    return url;
+  }
+
+  /**
+   * Generates candidate target URLs to handle Render private networking,
+   * cloud URLs, port 2785, port 10000, port 2886, port 8080, and localhost.
    */
   private static getCandidateUrls(primaryUrl: string = 'http://localhost:2785'): string[] {
     const set = new Set<string>();
     
-    // 1. Configured URL from ENV (e.g. Render Cloud URL)
-    if (config.openWaGatewayUrl && config.openWaGatewayUrl !== 'http://localhost:2785') {
-      set.add(config.openWaGatewayUrl.replace(/\/+$/, ''));
+    // 1. Configured URL from ENV (e.g. Render Cloud URL or internal host)
+    if (config.openWaGatewayUrl) {
+      const formatted = this.formatUrl(config.openWaGatewayUrl);
+      if (formatted) {
+        set.add(formatted);
+        // If it's an internal container name like http://openwa-engine
+        const urlObj = formatted.replace(/^https?:\/\//, '');
+        if (!urlObj.includes(':') && !urlObj.includes('.')) {
+          set.add(`${formatted}:2785`);
+          set.add(`${formatted}:10000`);
+        }
+      }
     }
 
     // 2. Primary requested URL (if custom)
     if (primaryUrl && primaryUrl !== 'http://localhost:2785') {
-      set.add(primaryUrl.replace(/\/+$/, ''));
+      const formatted = this.formatUrl(primaryUrl);
+      if (formatted) {
+        set.add(formatted);
+        const urlObj = formatted.replace(/^https?:\/\//, '');
+        if (!urlObj.includes(':') && !urlObj.includes('.')) {
+          set.add(`${formatted}:2785`);
+          set.add(`${formatted}:10000`);
+        }
+      }
     }
 
-    // 3. Fallback to default configured URL
-    if (config.openWaGatewayUrl) {
-      set.add(config.openWaGatewayUrl.replace(/\/+$/, ''));
-    }
+    // 3. Known Render private network and public service names
+    set.add('http://openwa-engine:2785');
+    set.add('http://openwa-engine:10000');
+    set.add('https://openwa-cloud-engine.onrender.com');
+    set.add('http://openwa-api:2785');
 
     // 4. Localhost and internal Docker ports
     set.add('http://localhost:2785');
     set.add('http://127.0.0.1:2785');
+    set.add('http://localhost:10000');
     set.add('http://host.docker.internal:2785');
-    set.add('http://openwa-api:2785');
     set.add('http://localhost:2886');
     set.add('http://127.0.0.1:2886');
     set.add('http://localhost:8080');
