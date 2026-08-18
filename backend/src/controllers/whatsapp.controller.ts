@@ -106,10 +106,12 @@ export class WhatsAppController {
       if (clientKey) OpenWaService.addApiKey(clientKey);
 
       const cleanUrl = (gatewayUrl || config.openWaGatewayUrl).trim();
+      const userIdPrefix = req.user?.id ? `u_${req.user.id.replace(/-/g, '').slice(0, 8)}_` : '';
+      const userScopedSessionName = accountName.startsWith('u_') ? accountName : `${userIdPrefix}${accountName}`;
 
       const qrResult = await OpenWaService.fetchLiveQr({
         gatewayUrl: cleanUrl,
-        sessionName: accountName,
+        sessionName: userScopedSessionName,
         sessionId,
         forceNew: Boolean(forceNew)
       });

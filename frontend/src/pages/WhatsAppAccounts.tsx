@@ -246,6 +246,19 @@ export const WhatsAppAccounts: React.FC = () => {
     }
   };
 
+  // Reset all QR modal inputs and clean state
+  const resetQrModal = () => {
+    setShowQrModal(false);
+    setQrConfirmed(false);
+    setQrPhoneNumber('');
+    setQrAccountName('WhatsApp Number');
+    setQrDataUrl('');
+    setFormError('');
+    setActiveSessionInfo(null);
+    setIsSessionAuthenticated(false);
+    setQrCountdown(25);
+  };
+
   // 3. Confirm open-wa QR Pairing
   const handleConfirmQrSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,11 +276,7 @@ export const WhatsAppAccounts: React.FC = () => {
       if (res.data.success) {
         setQrConfirmed(true);
         setTimeout(() => {
-          setShowQrModal(false);
-          setQrConfirmed(false);
-          setQrPhoneNumber('');
-          setActiveSessionInfo(null);
-          setIsSessionAuthenticated(false);
+          resetQrModal();
           fetchAccounts();
           checkOpenWaHealth();
         }, 1200);
@@ -868,26 +877,9 @@ export const WhatsAppAccounts: React.FC = () => {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={() => handleFetchLiveQr(false)}
-                    disabled={qrLoading || !qrDataUrl}
-                    style={{
-                      fontSize: '0.825rem',
-                      padding: '7px 16px',
-                      opacity: (qrLoading || !qrDataUrl) ? 0.6 : 1,
-                      cursor: (qrLoading || !qrDataUrl) ? 'not-allowed' : 'pointer'
-                    }}
-                    title={!qrDataUrl ? 'Waiting for QR code to be generated...' : 'Instantly request a fresh QR code'}
-                  >
-                    <RefreshCw size={14} className={qrLoading ? 'spin' : ''} />
-                    <span>{qrLoading ? 'Generating QR...' : 'Refresh QR'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn-secondary"
                     onClick={() => handleFetchLiveQr(true, `WhatsApp Number #${accounts.length + 1}`)}
                     disabled={qrLoading}
-                    style={{ fontSize: '0.825rem', padding: '7px 16px' }}
+                    style={{ fontSize: '0.825rem', padding: '7px 18px' }}
                     title="Create an additional WhatsApp account slot to pair a 2nd or 3rd phone number"
                   >
                     <Plus size={14} />
@@ -923,7 +915,7 @@ export const WhatsAppAccounts: React.FC = () => {
                     <button
                       type="button"
                       className="btn-secondary"
-                      onClick={() => setShowQrModal(false)}
+                      onClick={resetQrModal}
                     >
                       Close
                     </button>
