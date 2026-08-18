@@ -381,14 +381,14 @@ export class OpenWaService {
     let allSessions: any[] = [];
     for (let listAttempt = 1; listAttempt <= 3; listAttempt++) {
       try {
-        const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 4000 });
+        const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 10000 });
         if (Array.isArray(listRes.data)) {
           allSessions = listRes.data;
           break;
         }
       } catch (listErr: any) {
-        if (listErr.response?.status === 502 || listErr.response?.status === 503) {
-          if (listAttempt < 3) await new Promise(r => setTimeout(r, 1500));
+        if (listErr.response?.status === 502 || listErr.response?.status === 503 || listErr.code === 'ECONNRESET') {
+          if (listAttempt < 3) await new Promise(r => setTimeout(r, 2000));
         }
       }
     }
@@ -405,7 +405,7 @@ export class OpenWaService {
     if ((opts.forceNew || (!targetSession && cleanRequestedName)) && (!opts.sessionId)) {
       try {
         const newName = cleanRequestedName || `session-${Date.now().toString().slice(-6)}`;
-        const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 6000 });
+        const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 12000 });
         if (createRes.data?.id) {
           targetSession = createRes.data;
           allSessions.push(targetSession);
@@ -414,7 +414,7 @@ export class OpenWaService {
         // If 409 Conflict (session already exists), find the existing session
         if (err.response?.status === 409 || err.message?.includes('409')) {
           try {
-            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
+            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 8000 });
             if (Array.isArray(listRes.data)) {
               allSessions = listRes.data;
               targetSession = allSessions.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName) || allSessions[0];
@@ -432,14 +432,14 @@ export class OpenWaService {
         // Create initial session with unique slug
         try {
           const fallbackName = `wa-${Date.now().toString().slice(-6)}`;
-          const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: fallbackName }, { headers, timeout: 6000 });
+          const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: fallbackName }, { headers, timeout: 12000 });
           if (createRes.data?.id) {
             targetSession = createRes.data;
           }
         } catch (err: any) {
           // If 409 or list was delayed, try re-fetching
           try {
-            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
+            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 8000 });
             if (Array.isArray(listRes.data) && listRes.data.length > 0) {
               targetSession = listRes.data[0];
             }
