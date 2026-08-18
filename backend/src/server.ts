@@ -47,7 +47,7 @@ async function bootstrap() {
   await initDatabase();
 
   // Check open-wa service connectivity on startup
-  const openWaHealth = await OpenWaService.checkHealth('http://localhost:8080');
+  const openWaHealth = await OpenWaService.checkHealth(config.openWaGatewayUrl);
   if (openWaHealth.isOnline) {
     LoggerService.info(
       `[OPEN-WA HEALTH] Service is ONLINE at ${openWaHealth.gatewayUrl} (Status: ${openWaHealth.status})`,
