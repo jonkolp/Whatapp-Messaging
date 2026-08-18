@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400
       - key: PORT
         value: 10000
       - key: JWT_SECRET
@@ -39,6 +41,8 @@ services:
         value: 2785
       - key: ENGINE_TYPE
         value: baileys
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400
       - key: API_MASTER_KEY
         value: owa_k1_b6e2f42630ded3c45ea5438417bec7576b5b25e950e21ea145f4eb089e2076a7
       - key: NODE_ID

@@ -11,6 +11,7 @@ import apiRouter from './routes';
 import { errorHandler } from './middleware/error.middleware';
 import { OpenWaService } from './services/openwa.service';
 import { LoggerService } from './services/logger.service';
+import { HeartbeatService } from './services/heartbeat.service';
 
 const app = express();
 const server = http.createServer(app);
@@ -81,6 +82,9 @@ async function bootstrap() {
       'Bootstrap.openWaCheck'
     );
   }
+
+  // Start 24/7 Keep-Alive heartbeat loop to keep Render containers awake
+  HeartbeatService.startKeepAlive(8);
 
   if (process.env.NODE_ENV !== 'test') {
     server.listen(config.port, '0.0.0.0', () => {
