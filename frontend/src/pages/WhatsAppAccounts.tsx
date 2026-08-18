@@ -86,12 +86,15 @@ export const WhatsAppAccounts: React.FC = () => {
     setCheckingHealth(true);
     try {
       const [healthRes, sessionsRes] = await Promise.all([
-        api.get(`/whatsapp/openwa/health?gatewayUrl=${encodeURIComponent(qrGatewayUrl)}`),
-        api.get(`/whatsapp/openwa/sessions?gatewayUrl=${encodeURIComponent(qrGatewayUrl)}`).catch(() => ({ data: { sessions: [] } }))
+        api.get(`/whatsapp/openwa/health`),
+        api.get(`/whatsapp/openwa/sessions`).catch(() => ({ data: { sessions: [] } }))
       ]);
 
       if (healthRes.data.success) {
         setOpenWaHealth(healthRes.data.health);
+        if (healthRes.data.health?.gatewayUrl) {
+          setQrGatewayUrl(healthRes.data.health.gatewayUrl);
+        }
       }
       if (sessionsRes.data?.sessions) {
         setOpenWaSessions(sessionsRes.data.sessions);
@@ -389,20 +392,20 @@ export const WhatsAppAccounts: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          padding: '8px 16px',
+          padding: '8px 18px',
           borderRadius: '9999px',
-          background: openWaHealth?.isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-          border: `1px solid ${openWaHealth?.isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+          background: openWaHealth?.isOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+          border: `1px solid ${openWaHealth?.isOnline ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'}`,
           fontSize: '0.85rem'
         }}>
           <Server size={16} color={openWaHealth?.isOnline ? 'var(--accent-emerald)' : '#f59e0b'} />
           <span style={{ fontWeight: '600', color: openWaHealth?.isOnline ? 'var(--accent-emerald)' : '#fbbf24' }}>
-            open-wa ({qrGatewayUrl}): {openWaHealth?.isOnline ? `${openWaSessions.length} Engine Session(s)` : 'OFFLINE'}
+            OpenWA Engine: {openWaHealth?.isOnline ? `🟢 Connected (${openWaHealth.gatewayUrl || qrGatewayUrl})` : '🟡 Offline / Connecting'}
           </span>
           <button
             onClick={checkOpenWaHealth}
-            title="Recheck open-wa health"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+            title="Click to re-verify live engine connection"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', marginLeft: '4px' }}
           >
             <RefreshCw size={14} className={checkingHealth ? 'spin' : ''} />
           </button>
