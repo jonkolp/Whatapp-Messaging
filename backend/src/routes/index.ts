@@ -50,6 +50,7 @@ router.get('/whatsapp/openwa/sessions', authMiddleware, WhatsAppController.getOp
 router.delete('/whatsapp/openwa/sessions/:sessionId', authMiddleware, WhatsAppController.deleteOpenWaSession);
 router.post('/whatsapp/openwa/sessions/:sessionId/restart', authMiddleware, WhatsAppController.restartOpenWaSession);
 router.post('/whatsapp/openwa/start-session', authMiddleware, WhatsAppController.startOpenWaSession);
+router.post('/whatsapp/openwa/pairing-code', authMiddleware, WhatsAppController.requestPairingCode);
 router.post('/whatsapp/openwa/confirm-session', authMiddleware, WhatsAppController.confirmOpenWaSession);
 router.post('/whatsapp/accounts/:id/test', authMiddleware, WhatsAppController.testMessage);
 router.delete('/whatsapp/accounts/:id', authMiddleware, WhatsAppController.deleteAccount);

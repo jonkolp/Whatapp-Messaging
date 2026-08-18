@@ -159,6 +159,42 @@ export class WhatsAppController {
   }
 
   /**
+   * Generates an 8-character WhatsApp Pairing Code for phone linking without QR
+   */
+  static async requestPairingCode(req: Request, res: Response): Promise<void> {
+    try {
+      const { gatewayUrl = config.openWaGatewayUrl, sessionId, phoneNumber } = req.body;
+      const clientKey = (req.headers['x-openwa-key'] as string) || (req.query?.apiKey as string);
+      if (clientKey) OpenWaService.addApiKey(clientKey);
+
+      if (!sessionId || !phoneNumber) {
+        res.status(400).json({ success: false, message: 'sessionId and phoneNumber are required.' });
+        return;
+      }
+
+      const result = await OpenWaService.requestPairingCode({
+        gatewayUrl,
+        sessionId,
+        phoneNumber
+      });
+
+      if (!result.success) {
+        res.status(400).json({ success: false, message: result.error });
+        return;
+      }
+
+      res.json({
+        success: true,
+        pairingCode: result.pairingCode,
+        message: 'Pairing code generated. Enter this 8-digit code in WhatsApp on your phone.'
+      });
+    } catch (err: any) {
+      LoggerService.error('Failed in requestPairingCode', 'WhatsAppController.requestPairingCode', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * Confirms & saves the open-wa QR-paired session
    */
   static async confirmOpenWaSession(req: Request, res: Response): Promise<void> {

@@ -459,10 +459,10 @@ export class OpenWaService {
 
     // 4. Ensure session engine is started in OpenWA
     try {
-      if (!targetSession.engineLoaded || targetSession.status === 'disconnected' || targetSession.status === 'created') {
-        await axios.post(`${workingUrl}/api/sessions/${targetSession.id}/start`, {}, { headers, timeout: 6000 });
-      }
-    } catch {}
+      await axios.post(`${workingUrl}/api/sessions/${targetSession.id}/start`, {}, { headers, timeout: 8000 });
+    } catch (err: any) {
+      // 400 'Session already started' is normal
+    }
 
     // 5. Query live QR for this target session
     let qrDataUrl: string | null = null;
@@ -618,6 +618,41 @@ export class OpenWaService {
     } catch (finalErr: any) {
       const errMsg = finalErr.response?.data?.message || finalErr.response?.data?.error || finalErr.message || 'OpenWA message endpoint unreachable.';
       throw new Error(`OpenWA message delivery failed: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Request an 8-character WhatsApp Pairing Code (Phone Number Link without scanning QR)
+   */
+  static async requestPairingCode(options: {
+    gatewayUrl?: string;
+    sessionId: string;
+    phoneNumber: string;
+  }): Promise<{ success: boolean; pairingCode?: string; error?: string }> {
+    const workingUrl = (await this.resolveWorkingUrl(options.gatewayUrl)) || 'http://localhost:2785';
+    const apiKey = this.knownApiKeys[0] || '';
+    const headers = this.getHeaders(apiKey);
+
+    const cleanDigits = options.phoneNumber.replace(/\D/g, '');
+
+    // Ensure session engine is started
+    try {
+      await axios.post(`${workingUrl}/api/sessions/${options.sessionId}/start`, {}, { headers, timeout: 8000 });
+    } catch {}
+
+    try {
+      const res = await axios.post(
+        `${workingUrl}/api/sessions/${options.sessionId}/pairing-code`,
+        { phoneNumber: cleanDigits },
+        { headers, timeout: 12000 }
+      );
+      if (res.data?.pairingCode) {
+        return { success: true, pairingCode: res.data.pairingCode };
+      }
+      return { success: false, error: 'No pairing code returned from engine.' };
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to request pairing code.';
+      return { success: false, error: msg };
     }
   }
 }

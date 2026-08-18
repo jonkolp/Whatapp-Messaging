@@ -48,7 +48,11 @@ export const WhatsAppAccounts: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // open-wa QR Code State
+  // open-wa QR Code & Pairing Code State
+  const [pairingTab, setPairingTab] = useState<'qr' | 'code'>('qr');
+  const [pairingCodePhone, setPairingCodePhone] = useState('');
+  const [pairingCodeResult, setPairingCodeResult] = useState('');
+  const [requestingPairingCode, setRequestingPairingCode] = useState(false);
   const [qrGatewayUrl, setQrGatewayUrl] = useState((import.meta as any).env?.VITE_OPENWA_GATEWAY_URL || 'http://localhost:2785');
   const [qrAccountName, setQrAccountName] = useState('WhatsApp Number');
   const [qrPhoneNumber, setQrPhoneNumber] = useState('');
@@ -241,7 +245,53 @@ export const WhatsAppAccounts: React.FC = () => {
     }
   };
 
-  // 4. Disconnect & Reset session in OpenWA
+  // 4. Request 8-Digit Pairing Code (Phone Number Link without scanning QR)
+  const handleRequestPairingCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pairingCodePhone) return;
+    setRequestingPairingCode(true);
+    setFormError('');
+    setPairingCodeResult('');
+
+    try {
+      // 1. Ensure a session exists
+      let targetId = activeSessionInfo?.sessionId;
+      if (!targetId) {
+        const startRes = await api.post('/whatsapp/openwa/start-session', {
+          gatewayUrl: qrGatewayUrl,
+          accountName: qrAccountName || `Number-${accounts.length + 1}`,
+          forceNew: false
+        });
+        if (startRes.data?.sessionId) {
+          targetId = startRes.data.sessionId;
+          setActiveSessionInfo(startRes.data);
+        }
+      }
+
+      if (!targetId) {
+        throw new Error('Unable to initialize OpenWA session for pairing code.');
+      }
+
+      const res = await api.post('/whatsapp/openwa/pairing-code', {
+        gatewayUrl: qrGatewayUrl,
+        sessionId: targetId,
+        phoneNumber: pairingCodePhone
+      });
+
+      if (res.data.success && res.data.pairingCode) {
+        setPairingCodeResult(res.data.pairingCode);
+        setQrPhoneNumber(pairingCodePhone);
+      } else {
+        setFormError(res.data.message || 'Engine did not return a pairing code.');
+      }
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || err.message || 'Failed to request pairing code.');
+    } finally {
+      setRequestingPairingCode(false);
+    }
+  };
+
+  // 5. Disconnect & Reset session in OpenWA
   const handleResetOpenWaSession = async (sessionId?: string) => {
     const targetId = sessionId || activeSessionInfo?.sessionId;
     if (!targetId) return;
@@ -643,6 +693,28 @@ export const WhatsAppAccounts: React.FC = () => {
               </div>
             )}
 
+            {/* Method Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px' }}>
+              <button
+                type="button"
+                className={pairingTab === 'qr' ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => setPairingTab('qr')}
+                style={{ flex: 1, padding: '8px', fontSize: '0.85rem', justifyContent: 'center' }}
+              >
+                <QrCode size={16} />
+                <span>Scan Live QR Code</span>
+              </button>
+              <button
+                type="button"
+                className={pairingTab === 'code' ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => setPairingTab('code')}
+                style={{ flex: 1, padding: '8px', fontSize: '0.85rem', justifyContent: 'center' }}
+              >
+                <Smartphone size={16} />
+                <span>8-Digit Phone Code</span>
+              </button>
+            </div>
+
             {qrConfirmed ? (
               <div style={{ padding: '30px 0' }}>
                 <CheckCircle2 size={54} color="var(--accent-emerald)" style={{ marginBottom: '12px' }} />
@@ -723,6 +795,94 @@ export const WhatsAppAccounts: React.FC = () => {
                         <span>Disconnect & Rescan</span>
                       </button>
                     </div>
+                  </div>
+                </form>
+              </div>
+            ) : pairingTab === 'code' ? (
+              /* Phone Number 8-Digit Pairing Code Tab */
+              <div style={{ textAlign: 'left' }}>
+                <form onSubmit={handleRequestPairingCode}>
+                  <div className="form-group">
+                    <label className="form-label">Your WhatsApp Phone Number (with Country Code)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="+966501234567"
+                      value={pairingCodePhone}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPairingCodePhone(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={requestingPairingCode || !pairingCodePhone}
+                    style={{ width: '100%', justifyContent: 'center', marginBottom: '16px' }}
+                  >
+                    <Smartphone size={16} />
+                    <span>{requestingPairingCode ? 'Generating Code...' : 'Get 8-Digit Pairing Code'}</span>
+                  </button>
+                </form>
+
+                {pairingCodeResult && (
+                  <div style={{
+                    padding: '20px',
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    textAlign: 'center',
+                    marginBottom: '16px'
+                  }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      Enter this code in WhatsApp on your phone:
+                    </div>
+                    <div style={{
+                      fontSize: '1.8rem',
+                      fontWeight: '800',
+                      letterSpacing: '4px',
+                      color: '#34d399',
+                      padding: '8px 16px',
+                      background: 'rgba(0,0,0,0.3)',
+                      borderRadius: '8px',
+                      display: 'inline-block'
+                    }}>
+                      {pairingCodeResult}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'left' }}>
+                      👉 <strong>How to enter:</strong> Open WhatsApp &gt; <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong> &gt; tap <strong>"Link with phone number instead"</strong> at the bottom.
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleConfirmQrSession}>
+                  <div className="form-group">
+                    <label className="form-label">Account Label</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={qrAccountName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrAccountName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '20px' }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setShowQrModal(false)}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={submitting || !qrPhoneNumber}
+                    >
+                      <CheckCircle2 size={16} />
+                      <span>{submitting ? 'Registering...' : 'Save & Register Session'}</span>
+                    </button>
                   </div>
                 </form>
               </div>
