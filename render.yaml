@@ -1,4 +1,5 @@
 services:
+  # 1. Main Full-Stack Web App (React Dashboard + Node Backend API + SQLite)
   - type: web
     name: whatsapp-dashboard
     runtime: node
@@ -16,6 +17,34 @@ services:
       - key: ENCRYPTION_KEY
         value: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       - key: OPENWA_GATEWAY_URL
-        value: http://localhost:2785
+        fromService:
+          type: web
+          name: openwa-engine
+          property: host
+      - key: OPENWA_API_KEY
+        value: owa_k1_b6e2f42630ded3c45ea5438417bec7576b5b25e950e21ea145f4eb089e2076a7
       - key: META_VERIFY_TOKEN
         value: whatsapp_meta_verify_token_123
+
+  # 2. Cloud-Hosted OpenWA Engine (Baileys WhatsApp Web QR Service)
+  - type: web
+    name: openwa-engine
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: OpenWA
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: PORT
+        value: 2785
+      - key: API_MASTER_KEY
+        value: owa_k1_b6e2f42630ded3c45ea5438417bec7576b5b25e950e21ea145f4eb089e2076a7
+      - key: NODE_ID
+        value: openwa-cloud-node
+      - key: LOG_LEVEL
+        value: info
+      - key: WWEBJS_WEB_VERSION
+        value: off
+      - key: WWEBJS_AUTH_TIMEOUT_MS
+        value: 120000
+
