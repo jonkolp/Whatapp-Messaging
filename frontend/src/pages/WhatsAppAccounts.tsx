@@ -693,28 +693,6 @@ export const WhatsAppAccounts: React.FC = () => {
               </div>
             )}
 
-            {/* Method Switcher Tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px' }}>
-              <button
-                type="button"
-                className={pairingTab === 'qr' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => setPairingTab('qr')}
-                style={{ flex: 1, padding: '8px', fontSize: '0.85rem', justifyContent: 'center' }}
-              >
-                <QrCode size={16} />
-                <span>Scan Live QR Code</span>
-              </button>
-              <button
-                type="button"
-                className={pairingTab === 'code' ? 'btn-primary' : 'btn-secondary'}
-                onClick={() => setPairingTab('code')}
-                style={{ flex: 1, padding: '8px', fontSize: '0.85rem', justifyContent: 'center' }}
-              >
-                <Smartphone size={16} />
-                <span>8-Digit Phone Code</span>
-              </button>
-            </div>
-
             {qrConfirmed ? (
               <div style={{ padding: '30px 0' }}>
                 <CheckCircle2 size={54} color="var(--accent-emerald)" style={{ marginBottom: '12px' }} />
@@ -798,123 +776,36 @@ export const WhatsAppAccounts: React.FC = () => {
                   </div>
                 </form>
               </div>
-            ) : pairingTab === 'code' ? (
-              /* Phone Number 8-Digit Pairing Code Tab */
-              <div style={{ textAlign: 'left' }}>
-                <form onSubmit={handleRequestPairingCode}>
-                  <div className="form-group">
-                    <label className="form-label">Your WhatsApp Phone Number (with Country Code)</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="+966501234567"
-                      value={pairingCodePhone}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPairingCodePhone(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={requestingPairingCode || !pairingCodePhone}
-                    style={{ width: '100%', justifyContent: 'center', marginBottom: '16px' }}
-                  >
-                    <Smartphone size={16} />
-                    <span>{requestingPairingCode ? 'Generating Code...' : 'Get 8-Digit Pairing Code'}</span>
-                  </button>
-                </form>
-
-                {pairingCodeResult && (
-                  <div style={{
-                    padding: '20px',
-                    borderRadius: '12px',
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    textAlign: 'center',
-                    marginBottom: '16px'
-                  }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                      Enter this code in WhatsApp on your phone:
-                    </div>
-                    <div style={{
-                      fontSize: '1.8rem',
-                      fontWeight: '800',
-                      letterSpacing: '4px',
-                      color: '#34d399',
-                      padding: '8px 16px',
-                      background: 'rgba(0,0,0,0.3)',
-                      borderRadius: '8px',
-                      display: 'inline-block'
-                    }}>
-                      {pairingCodeResult}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'left' }}>
-                      👉 <strong>How to enter:</strong> Open WhatsApp &gt; <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong> &gt; tap <strong>"Link with phone number instead"</strong> at the bottom.
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handleConfirmQrSession}>
-                  <div className="form-group">
-                    <label className="form-label">Account Label</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={qrAccountName}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQrAccountName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '20px' }}>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setShowQrModal(false)}
-                    >
-                      Close
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn-primary"
-                      disabled={submitting || !qrPhoneNumber}
-                    >
-                      <CheckCircle2 size={16} />
-                      <span>{submitting ? 'Registering...' : 'Save & Register Session'}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
             ) : (
               <>
-                {/* QR Code Container */}
+                {/* Live QR Code Container */}
                 {qrDataUrl ? (
                   <div style={{
                     display: 'inline-block',
                     padding: '16px',
                     background: '#ffffff',
                     borderRadius: '16px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
                     marginBottom: '16px'
                   }}>
                     <img
                       src={qrDataUrl}
                       alt="WhatsApp Web Live QR Code"
-                      style={{ width: '220px', height: '220px', display: 'block' }}
+                      style={{ width: '240px', height: '240px', display: 'block' }}
                     />
                   </div>
                 ) : (
                   <div style={{
-                    padding: '28px',
+                    padding: '36px',
                     background: 'var(--bg-input)',
                     borderRadius: '12px',
                     marginBottom: '16px',
                     color: 'var(--text-muted)',
                     fontSize: '0.85rem'
                   }}>
-                    <RefreshCw size={24} className="spin" style={{ margin: '0 auto 10px auto' }} />
-                    <span>Generating live Baileys QR code from engine...</span>
+                    <RefreshCw size={28} className="spin" style={{ margin: '0 auto 12px auto' }} />
+                    <span style={{ display: 'block', fontWeight: 600, color: 'var(--text-primary)' }}>Loading Live QR Code...</span>
+                    <span style={{ fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>Connecting to cloud WhatsApp Web engine</span>
                   </div>
                 )}
 

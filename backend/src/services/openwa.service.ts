@@ -53,33 +53,32 @@ export class OpenWaService {
    * port 2886, port 8080, Docker networks, and localhost.
    */
   private static getCandidateUrls(primaryUrl: string = 'http://localhost:2785'): string[] {
-    const cleanPrimary = (primaryUrl || 'http://localhost:2785').replace(/\/+$/, '');
     const set = new Set<string>();
     
-    // 1. Primary requested URL
-    set.add(cleanPrimary);
-    
-    // 2. Configured URL from ENV
+    // 1. Configured URL from ENV (e.g. Render Cloud URL)
+    if (config.openWaGatewayUrl && config.openWaGatewayUrl !== 'http://localhost:2785') {
+      set.add(config.openWaGatewayUrl.replace(/\/+$/, ''));
+    }
+
+    // 2. Primary requested URL (if custom)
+    if (primaryUrl && primaryUrl !== 'http://localhost:2785') {
+      set.add(primaryUrl.replace(/\/+$/, ''));
+    }
+
+    // 3. Fallback to default configured URL
     if (config.openWaGatewayUrl) {
       set.add(config.openWaGatewayUrl.replace(/\/+$/, ''));
     }
 
-    // 3. OpenWA port 2785 (Default API & Dashboard port)
+    // 4. Localhost and internal Docker ports
     set.add('http://localhost:2785');
     set.add('http://127.0.0.1:2785');
     set.add('http://host.docker.internal:2785');
     set.add('http://openwa-api:2785');
-
-    // 4. OpenWA port 2886 (Vite dev port)
     set.add('http://localhost:2886');
     set.add('http://127.0.0.1:2886');
-    set.add('http://host.docker.internal:2886');
-
-    // 5. Classic open-wa port 8080
     set.add('http://localhost:8080');
     set.add('http://127.0.0.1:8080');
-    set.add('http://host.docker.internal:8080');
-    set.add('http://openwa:8080');
 
     return Array.from(set);
   }
@@ -125,7 +124,7 @@ export class OpenWaService {
 
     for (const url of candidates) {
       try {
-        const res = await axios.get(`${url}/`, { timeout: 1500 });
+        const res = await axios.get(`${url}/api/health/ready`, { timeout: 6000 });
         if (res.status >= 200 && res.status < 500) {
           this.ensureSocketListener(url);
           return url;
@@ -134,6 +133,18 @@ export class OpenWaService {
         if (err.response && err.response.status) {
           this.ensureSocketListener(url);
           return url;
+        }
+        try {
+          const rootRes = await axios.get(`${url}/`, { timeout: 5000 });
+          if (rootRes.status >= 200 && rootRes.status < 500) {
+            this.ensureSocketListener(url);
+            return url;
+          }
+        } catch (rootErr: any) {
+          if (rootErr.response && rootErr.response.status) {
+            this.ensureSocketListener(url);
+            return url;
+          }
         }
       }
     }
