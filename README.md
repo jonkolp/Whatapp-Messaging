@@ -9,7 +9,8 @@ A full-stack, enterprise-grade WhatsApp automated outreach and campaign manageme
 2. [🏗️ System Architecture](#️-system-architecture)
 3. [📋 Prerequisites](#-prerequisites)
 4. [⚡ Quick Start Guide (Team Setup)](#-quick-start-guide-team-setup)
-5. [🖥️ Detailed Dashboard User Guide](#️-detailed-dashboard-user-guide)
+5. [🔧 Environment Variables & Configuration](#-environment-variables--configuration)
+6. [🖥️ Detailed Dashboard User Guide](#️-detailed-dashboard-user-guide)
    - [1. User Registration & Login](#1-user-registration--login)
    - [2. Connecting WhatsApp Numbers (Live QR & Meta API)](#2-connecting-whatsapp-numbers-live-qr--meta-api)
    - [3. Multi-Session Management (Multiple Phone Numbers)](#3-multi-session-management-multiple-phone-numbers)
@@ -20,9 +21,9 @@ A full-stack, enterprise-grade WhatsApp automated outreach and campaign manageme
    - [8. CSV Report Export](#8-csv-report-export)
    - [9. Logs, System Diagnostics & Audit Trail](#9-logs-system-diagnostics--audit-trail)
    - [10. Settings & Webhook Endpoints](#10-settings--webhook-endpoints)
-6. [🧪 Running Automated Tests](#-running-automated-tests)
-7. [📁 Repository Structure](#-repository-structure)
-8. [🛡️ Security Best Practices](#️-security-best-practices)
+7. [🧪 Running Automated Tests](#-running-automated-tests)
+8. [📁 Repository Structure](#-repository-structure)
+9. [🛡️ Security Best Practices](#️-security-best-practices)
 
 ---
 
@@ -118,6 +119,50 @@ npm install
 npm run dev
 ```
 > Open your browser at **`http://localhost:3000`**.
+
+---
+
+## 🔧 Environment Variables & Configuration
+
+The project is designed with **"Zero-Config Defaults"**: team members can start the backend and frontend immediately without creating a `.env` file because safe, fully-functioning local defaults are built into the code.
+
+However, if you or your team wish to customize ports, database paths, or encryption keys, the repository includes ready `.env.example` templates across all layers.
+
+### 1. Setting Up Your Custom `.env` File
+```bash
+# In the backend directory:
+cd backend
+cp .env.example .env
+```
+
+### 2. Backend Environment Variables Reference (`backend/.env`)
+
+| Variable Name | Default Value | Description |
+|---|---|---|
+| `PORT` | `5000` | Port on which the Express REST API backend listens. |
+| `NODE_ENV` | `development` | Environment mode (`development` or `production`). |
+| `SQLITE_DB_PATH` | `./data/whatsapp.sqlite` | Filepath for the SQLite WASM persistent database. |
+| `JWT_SECRET` | `super_secret_jwt_key_...` | Secret key used to sign and verify user JWT authentication tokens. |
+| `ENCRYPTION_KEY` | `0123456789abcdef...` | 32-byte hexadecimal key for AES-256-GCM token & API key encryption. |
+| `OPENWA_GATEWAY_URL` | `http://localhost:2785` | URL of the local OpenWA Baileys WhatsApp container. |
+| `OPENWA_API_KEY` | `owa_k1_b6e2f426...` | Master API Key configured in the OpenWA engine. |
+| `N8N_WEBHOOK_URL` | `http://localhost:5678/...` | Optional n8n workflow dispatch webhook endpoint. |
+| `N8N_CALLBACK_SECRET`| `whatsapp_dashboard_...` | Shared secret to verify dispatch callbacks from n8n. |
+| `META_VERIFY_TOKEN` | `whatsapp_meta_...` | Custom token used for Meta WhatsApp Webhook handshake verification. |
+| `FRONTEND_URL` | `http://localhost:3000` | Base URL of the frontend dashboard (used for CORS policy). |
+
+---
+
+### 3. OpenWA Engine Environment Variables Reference (`OpenWA/.env`)
+
+| Variable Name | Default Value | Description |
+|---|---|---|
+| `PORT` | `2785` | Port on which the OpenWA Baileys container and dashboard run. |
+| `API_MASTER_KEY` | `owa_k1_b6e2f426...` | Master authentication key for REST API calls into OpenWA. |
+| `LOG_LEVEL` | `info` | Container logging level (`info`, `debug`, `warn`, `error`). |
+| `NODE_ID` | `openwa-main-node` | Identifier for the OpenWA node instance. |
+| `WWEBJS_WEB_VERSION`| `off` | WhatsApp Web version pinning setting. |
+| `WWEBJS_AUTH_TIMEOUT_MS` | `120000` | Pairing and connection timeout threshold (in milliseconds). |
 
 ---
 
