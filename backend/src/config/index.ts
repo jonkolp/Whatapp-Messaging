@@ -15,6 +15,6 @@ export const config = {
   n8nCallbackSecret: process.env.N8N_CALLBACK_SECRET || 'whatsapp_dashboard_n8n_secret_key',
   metaVerifyToken: process.env.META_VERIFY_TOKEN || 'whatsapp_meta_verify_token_123',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-  openWaGatewayUrl: process.env.OPENWA_GATEWAY_URL || 'http://localhost:8080',
+  openWaGatewayUrl: process.env.OPENWA_GATEWAY_URL || 'http://localhost:2785',
   uploadsDir: path.resolve(__dirname, '../../uploads')
 };
