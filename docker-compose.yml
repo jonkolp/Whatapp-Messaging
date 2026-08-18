@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: whatsapp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-whatsapp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-whatsapp_secret_password}
+      POSTGRES_DB: ${DB_NAME:-whatsapp_dashboard}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - whatsapp_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: whatsapp_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - whatsapp_net
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: whatsapp_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Asia/Riyadh
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/data/workflows
+    networks:
+      - whatsapp_net
+
+  openwa:
+    image: openwa/wa-automate:latest
+    container_name: whatsapp_openwa
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    volumes:
+      - openwa_sessions:/root/.config/
+    networks:
+      - whatsapp_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: whatsapp_backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - n8n
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://${DB_USER:-whatsapp_user}:${DB_PASSWORD:-whatsapp_secret_password}@postgres:5432/${DB_NAME:-whatsapp_dashboard}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_min_32_chars_long!}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855}
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/whatsapp-campaign-dispatch
+      - N8N_CALLBACK_SECRET=whatsapp_dashboard_n8n_secret_key
+      - META_VERIFY_TOKEN=whatsapp_meta_verify_token_123
+      - OPENWA_GATEWAY_URL=http://openwa:8080
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - whatsapp_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: whatsapp_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+    networks:
+      - whatsapp_net
+
+networks:
+  whatsapp_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  uploads_data:
+  openwa_sessions:

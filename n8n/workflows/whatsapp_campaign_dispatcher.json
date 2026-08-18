@@ -1,0 +1,289 @@
+{
+  "name": "WhatsApp Multi-Tenant Campaign Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-campaign-dispatch",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "webhookTrigger",
+      "name": "Webhook: Campaign Dispatch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, 300],
+      "webhookId": "campaign-dispatch-webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Batch received and processing started\",\n  \"batchSize\": $json.body.contacts ? $json.body.contacts.length : 0,\n  \"campaignId\": $json.body.campaignId\n}",
+        "options": {}
+      },
+      "id": "ackWebhook",
+      "name": "Acknowledge Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-980, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json.body;\n\nif (!payload || !payload.contacts || !Array.isArray(payload.contacts)) {\n  throw new Error('Invalid payload: contacts array is required');\n}\n\nconst items = payload.contacts.map(contact => ({\n  json: {\n    campaignId: payload.campaignId,\n    userId: payload.userId,\n    provider: payload.provider || 'META_CLOUD_API',\n    senderConfig: payload.senderConfig || {},\n    callbackUrl: payload.callbackUrl,\n    callbackSecret: payload.callbackSecret,\n    contact: contact\n  }\n}));\n\nreturn items;"
+      },
+      "id": "normalizeBatch",
+      "name": "Extract Contacts Array",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, 380]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loopContacts",
+      "name": "Loop Over Contacts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-740, 380]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.provider }}",
+                    "rightValue": "META_CLOUD_API",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Meta Cloud API"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.provider }}",
+                    "rightValue": "OPEN_WA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "open-wa Gateway"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "providerRouter",
+      "name": "Route by Provider",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [-500, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v23.0/{{ $json.senderConfig.phoneNumberId }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.senderConfig.accessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  $json.contact.templateName ? {\n    \"messaging_product\": \"whatsapp\",\n    \"to\": $json.contact.phone,\n    \"type\": \"template\",\n    \"template\": {\n      \"name\": $json.contact.templateName,\n      \"language\": { \"code\": $json.contact.templateLanguage || \"ar\" },\n      \"components\": [\n        {\n          \"type\": \"body\",\n          \"parameters\": ($json.contact.templateParams || []).map(p => ({ \"type\": \"text\", \"text\": String(p) }))\n        }\n      ]\n    }\n  } : {\n    \"messaging_product\": \"whatsapp\",\n    \"recipient_type\": \"individual\",\n    \"to\": $json.contact.phone,\n    \"type\": \"text\",\n    \"text\": {\n      \"preview_url\": false,\n      \"body\": $json.contact.message\n    }\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "sendMetaApi",
+      "name": "Send via Meta Cloud API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 240],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.senderConfig.openWaUrl || 'http://host.docker.internal:8080' }}/api/messages/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": $json.contact.chatId || ($json.contact.phone + \"@c.us\"), \"content\": $json.contact.message, \"options\": null } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "sendOpenWa",
+      "name": "Send via open-wa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 520],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\nconst itemContext = $('Loop Over Contacts').item.json;\n\nlet status = 'SENT';\nlet providerMessageId = null;\nlet errorDetails = null;\n\n// Detect Meta API response\nif (response.messages && response.messages.length > 0) {\n  providerMessageId = response.messages[0].id;\n  status = 'SENT';\n} else if (response.id && typeof response.id === 'string') {\n  // open-wa response\n  providerMessageId = response.id;\n  status = 'SENT';\n} else if (response.error || response.message || response.statusCode >= 400) {\n  status = 'FAILED';\n  errorDetails = response.error ? JSON.stringify(response.error) : (response.message || 'Unknown provider error');\n}\n\nreturn [{\n  json: {\n    campaignId: itemContext.campaignId,\n    campaignContactId: itemContext.contact.campaignContactId,\n    phone: itemContext.contact.phone,\n    status: status,\n    providerMessageId: providerMessageId,\n    error: errorDetails,\n    callbackUrl: itemContext.callbackUrl,\n    callbackSecret: itemContext.callbackSecret,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "evaluateOutcome",
+      "name": "Format Callback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl || 'http://backend:5000/api/v1/webhooks/n8n/status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "={{ $json.callbackSecret || 'whatsapp_dashboard_n8n_secret_key' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"campaignId\": $json.campaignId, \"campaignContactId\": $json.campaignContactId, \"phone\": $json.phone, \"status\": $json.status, \"providerMessageId\": $json.providerMessageId, \"error\": $json.error, \"timestamp\": $json.timestamp } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "notifyBackend",
+      "name": "Report Status to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 380],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * (8 - 3 + 1)) + 3 }}",
+        "unit": "seconds"
+      },
+      "id": "jitterDelay",
+      "name": "Anti-Ban Jitter (3-8s Delay)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [540, 380]
+    },
+    {
+      "parameters": {},
+      "id": "batchDone",
+      "name": "Batch Completed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-740, 600]
+    }
+  ],
+  "connections": {
+    "Webhook: Campaign Dispatch": {
+      "main": [
+        [
+          { "node": "Acknowledge Webhook", "type": "main", "index": 0 },
+          { "node": "Extract Contacts Array", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract Contacts Array": {
+      "main": [
+        [{ "node": "Loop Over Contacts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Loop Over Contacts": {
+      "main": [
+        [{ "node": "Batch Completed", "type": "main", "index": 0 }],
+        [{ "node": "Route by Provider", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Provider": {
+      "main": [
+        [{ "node": "Send via Meta Cloud API", "type": "main", "index": 0 }],
+        [{ "node": "Send via open-wa", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send via Meta Cloud API": {
+      "main": [
+        [{ "node": "Format Callback Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send via open-wa": {
+      "main": [
+        [{ "node": "Format Callback Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Callback Payload": {
+      "main": [
+        [{ "node": "Report Status to Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "Report Status to Backend": {
+      "main": [
+        [{ "node": "Anti-Ban Jitter (3-8s Delay)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Anti-Ban Jitter (3-8s Delay)": {
+      "main": [
+        [{ "node": "Loop Over Contacts", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

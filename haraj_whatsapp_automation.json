@@ -1,0 +1,219 @@
+{
+  "name": "Haraj WhatsApp Auto-Sender (Local Excel)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## For-loop version — runs until the list is done\nNo more schedule trigger / Active toggle. Click **Execute Workflow** once and it loops through every unsent row in ONE continuous execution — read once, then send → wait → send → wait ... until nothing unsent is left. This is a real n8n \"for loop\" via the Loop Over Numbers (Split In Batches) node + a Wait node that loops back to it.\n\n**Pacing:** the Wait node between each send is set to 10 seconds — same rate as before (~360/hr). With 2500 rows this single execution runs for roughly 7 hours. n8n has no execution timeout by default, so it won't get killed partway through — just don't close the n8n container/Docker Desktop while it's running.\n\n**Progress tracking:** still uses n8n's internal static data (sentPhones), NOT the xlsx file — Test.xlsx stays read-only, avoiding the Docker Desktop bind-mount write bug entirely. Re-running this workflow (e.g. after adding more numbers) automatically skips anyone already marked sent.\n\n**Retry behavior:** a failed send is retried on a LATER re-run of the whole workflow (not immediately in this same loop) — after 3 total failures across runs, that number is given up on so it can't block the queue.\n\n**To run it again later** (e.g. you added more numbers to Test.xlsx): just click Execute Workflow again — already-sent numbers are skipped automatically.\n\n**To stop it mid-run:** cancel the execution from n8n's Executions list.\n\n**Docker/open-wa setup (unchanged):** `/files/Test.xlsx` via bind mount; open-wa reached at `http://host.docker.internal:8080/api/messages/sendText`.",
+        "height": 620,
+        "width": 560
+      },
+      "id": "notes1",
+      "name": "Setup Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1400, -60]
+    },
+    {
+      "parameters": {},
+      "id": "manualTrigger",
+      "name": "When clicking Execute",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/files/Test.xlsx",
+        "options": {}
+      },
+      "id": "readFile",
+      "name": "Read Numbers File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [-1200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "data",
+        "options": {
+          "sheetName": "Numbers"
+        }
+      },
+      "id": "parseExcel",
+      "name": "Parse Excel Rows",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [-1000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Track sent phones in n8n's own persistent static data instead of\n// writing back to the xlsx file (avoids the Docker Desktop bind-mount\n// write bug entirely). This map survives across runs/restarts as long\n// as the n8n_data volume isn't deleted.\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhones) staticData.sentPhones = {};\n\nconst allRows = items.map(item => item.json);\nconst unsent = allRows.filter(row => !staticData.sentPhones[row.phone]);\n\nreturn unsent.map(row => ({ json: row }));"
+      },
+      "id": "storeAndFilter",
+      "name": "Filter Unsent (Persistent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-800, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loopBatches",
+      "name": "Loop Over Numbers",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-580, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $json;\n\n// Format phone for open-wa: needs '<countrycode><number>@c.us'\n// Numbers are already stored as 966XXXXXXXXX with no plus sign.\nconst chatId = `${row.phone}@c.us`;\n\n// Reuse the same Arabic template your dashboard used.\nconst message = `السلام عليكم، شفت إعلانك \"${row.ad}\" في حراج، ياليت نتواصل بخصوص السعر والتفاصيل. وفقك الله.`;\n\nreturn [{\n  json: {\n    ...row,\n    chatId,\n    message\n  }\n}];"
+      },
+      "id": "prepareMsg",
+      "name": "Prepare Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-360, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/messages/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Accept", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": $json.chatId, \"content\": $json.message, \"options\": null } }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "sendWA",
+      "name": "Send via open-wa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-140, 220],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "checkSuccess",
+      "name": "Sent OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [80, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark this phone as done in persistent static data — no file write.\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhones) staticData.sentPhones = {};\n\nconst phone = $('Prepare Message').item.json.phone;\nstaticData.sentPhones[phone] = { sent_at: new Date().toISOString() };\n\nreturn [{ json: $('Prepare Message').item.json }];"
+      },
+      "id": "markSent",
+      "name": "Mark As Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 140]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Track failures per phone. Leave it out of sentPhones so a later\n// re-run of this workflow retries it. After 3 total failures across\n// runs, give up on it so one bad number can't block the queue.\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhones) staticData.sentPhones = {};\nif (!staticData.failCounts) staticData.failCounts = {};\n\nconst phone = $('Prepare Message').item.json.phone;\nconst errorMessage = $json.error?.message || 'unknown error';\n\nstaticData.failCounts[phone] = (staticData.failCounts[phone] || 0) + 1;\n\nconst MAX_RETRIES = 3;\nlet gaveUp = false;\nif (staticData.failCounts[phone] >= MAX_RETRIES) {\n  staticData.sentPhones[phone] = { sent_at: new Date().toISOString(), gaveUpAfterError: errorMessage };\n  gaveUp = true;\n}\n\nreturn [{ json: { ...$('Prepare Message').item.json, error: errorMessage, attempt: staticData.failCounts[phone], gaveUp } }];"
+      },
+      "id": "markError",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 320]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "waitDelay",
+      "name": "Wait 10 Seconds Before Next",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [520, 220]
+    },
+    {
+      "parameters": {},
+      "id": "allDone",
+      "name": "All Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-580, 460]
+    }
+  ],
+  "connections": {
+    "When clicking Execute": {
+      "main": [[{ "node": "Read Numbers File", "type": "main", "index": 0 }]]
+    },
+    "Read Numbers File": {
+      "main": [[{ "node": "Parse Excel Rows", "type": "main", "index": 0 }]]
+    },
+    "Parse Excel Rows": {
+      "main": [[{ "node": "Filter Unsent (Persistent)", "type": "main", "index": 0 }]]
+    },
+    "Filter Unsent (Persistent)": {
+      "main": [[{ "node": "Loop Over Numbers", "type": "main", "index": 0 }]]
+    },
+    "Loop Over Numbers": {
+      "main": [
+        [{ "node": "All Done", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Message": {
+      "main": [[{ "node": "Send via open-wa", "type": "main", "index": 0 }]]
+    },
+    "Send via open-wa": {
+      "main": [[{ "node": "Sent OK?", "type": "main", "index": 0 }]]
+    },
+    "Sent OK?": {
+      "main": [
+        [{ "node": "Mark As Sent", "type": "main", "index": 0 }],
+        [{ "node": "Log Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark As Sent": {
+      "main": [[{ "node": "Wait 10 Seconds Before Next", "type": "main", "index": 0 }]]
+    },
+    "Log Error": {
+      "main": [[{ "node": "Wait 10 Seconds Before Next", "type": "main", "index": 0 }]]
+    },
+    "Wait 10 Seconds Before Next": {
+      "main": [[{ "node": "Loop Over Numbers", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
