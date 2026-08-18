@@ -514,7 +514,7 @@ export class OpenWaService {
       };
     }
 
-    // 4. Ensure session engine is started in OpenWA
+    // 4. Ensure session engine is started or fresh in OpenWA
     try {
       await axios.post(`${workingUrl}/api/sessions/${targetSession.id}/start`, {}, { headers, timeout: 8000 });
     } catch (err: any) {
@@ -525,7 +525,7 @@ export class OpenWaService {
     let qrDataUrl: string | null = null;
     let rawQrString: string | null = null;
 
-    // Retry up to 8 times with delays (Baileys may take 2-5s to emit QR on fresh cloud container start)
+    // Retry up to 8 times with delays (Baileys emits fresh QR)
     for (let attempt = 1; attempt <= 8; attempt++) {
       try {
         const qrRes = await axios.get(`${workingUrl}/api/sessions/${targetSession.id}/qr`, { headers, timeout: 4000 });
@@ -537,6 +537,13 @@ export class OpenWaService {
           break;
         }
       } catch (err: any) {
+        // If 404 or QR expired on attempt 2, trigger session restart to get a fresh QR
+        if (attempt === 2) {
+          try {
+            await axios.post(`${workingUrl}/api/sessions/${targetSession.id}/restart`, {}, { headers, timeout: 6000 });
+          } catch {}
+        }
+
         // Also check if session became authenticated during waiting
         try {
           const checkRes = await axios.get(`${workingUrl}/api/sessions/${targetSession.id}`, { headers, timeout: 2000 });
@@ -553,9 +560,9 @@ export class OpenWaService {
           }
         } catch {}
 
-        // If QR not ready yet, wait 1000ms and retry
+        // If QR not ready yet, wait 800ms and retry
         if (attempt < 8) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
     }
