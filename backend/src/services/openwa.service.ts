@@ -387,23 +387,35 @@ export class OpenWaService {
     } catch {}
 
     // 2. Identify or Create Target Session
+    const cleanRequestedName = opts.sessionName ? this.sanitizeSessionName(opts.sessionName) : '';
     if (opts.sessionId) {
       targetSession = allSessions.find(s => s.id === opts.sessionId);
-    } else if (opts.sessionName && !opts.forceNew) {
-      targetSession = allSessions.find(s => s.name?.toLowerCase() === opts.sessionName?.toLowerCase());
+    } else if (cleanRequestedName && !opts.forceNew) {
+      targetSession = allSessions.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName);
     }
 
     // If forceNew requested or sessionName explicitly provided and not found
-    if ((opts.forceNew || (!targetSession && opts.sessionName)) && (!opts.sessionId)) {
+    if ((opts.forceNew || (!targetSession && cleanRequestedName)) && (!opts.sessionId)) {
       try {
-        const newName = this.sanitizeSessionName(opts.sessionName);
+        const newName = cleanRequestedName || `session-${Date.now()}`;
         const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 5000 });
         if (createRes.data?.id) {
           targetSession = createRes.data;
           allSessions.push(targetSession);
         }
       } catch (err: any) {
-        LoggerService.warn(`Failed creating new session in OpenWA: ${err.message}`, 'OpenWaService.fetchLiveQr');
+        // If 409 Conflict (session already exists), find the existing session
+        if (err.response?.status === 409 || err.message?.includes('409')) {
+          try {
+            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
+            if (Array.isArray(listRes.data)) {
+              allSessions = listRes.data;
+              targetSession = allSessions.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName);
+            }
+          } catch {}
+        } else {
+          LoggerService.warn(`Failed creating new session in OpenWA: ${err.message}`, 'OpenWaService.fetchLiveQr');
+        }
       }
     }
 
