@@ -377,14 +377,21 @@ export class OpenWaService {
     const apiKey = this.knownApiKeys[0] || '';
     const headers = this.getHeaders(apiKey);
 
-    // 1. Fetch current sessions list from OpenWA
+    // 1. Fetch current sessions list from OpenWA (with retries for waking containers)
     let allSessions: any[] = [];
-    try {
-      const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
-      if (Array.isArray(listRes.data)) {
-        allSessions = listRes.data;
+    for (let listAttempt = 1; listAttempt <= 3; listAttempt++) {
+      try {
+        const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 4000 });
+        if (Array.isArray(listRes.data)) {
+          allSessions = listRes.data;
+          break;
+        }
+      } catch (listErr: any) {
+        if (listErr.response?.status === 502 || listErr.response?.status === 503) {
+          if (listAttempt < 3) await new Promise(r => setTimeout(r, 1500));
+        }
       }
-    } catch {}
+    }
 
     // 2. Identify or Create Target Session
     const cleanRequestedName = opts.sessionName ? this.sanitizeSessionName(opts.sessionName) : '';
@@ -397,8 +404,8 @@ export class OpenWaService {
     // If forceNew requested or sessionName explicitly provided and not found
     if ((opts.forceNew || (!targetSession && cleanRequestedName)) && (!opts.sessionId)) {
       try {
-        const newName = cleanRequestedName || `session-${Date.now()}`;
-        const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 5000 });
+        const newName = cleanRequestedName || `session-${Date.now().toString().slice(-6)}`;
+        const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: newName }, { headers, timeout: 6000 });
         if (createRes.data?.id) {
           targetSession = createRes.data;
           allSessions.push(targetSession);
@@ -410,7 +417,7 @@ export class OpenWaService {
             const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
             if (Array.isArray(listRes.data)) {
               allSessions = listRes.data;
-              targetSession = allSessions.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName);
+              targetSession = allSessions.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName) || allSessions[0];
             }
           } catch {}
         } else {
@@ -419,16 +426,25 @@ export class OpenWaService {
       }
     }
 
-    // If still no target session, look for unauthenticated/waiting session, or fallback to first
+    // If still no target session, look for unauthenticated/waiting session, or create unique fallback
     if (!targetSession) {
       if (allSessions.length === 0) {
-        // Create initial session
+        // Create initial session with unique slug
         try {
-          const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: 'baileys-active' }, { headers, timeout: 5000 });
+          const fallbackName = `wa-${Date.now().toString().slice(-6)}`;
+          const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: fallbackName }, { headers, timeout: 6000 });
           if (createRes.data?.id) {
             targetSession = createRes.data;
           }
-        } catch {}
+        } catch (err: any) {
+          // If 409 or list was delayed, try re-fetching
+          try {
+            const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3500 });
+            if (Array.isArray(listRes.data) && listRes.data.length > 0) {
+              targetSession = listRes.data[0];
+            }
+          } catch {}
+        }
       } else {
         // Pick waiting session first if available
         const waiting = allSessions.find(s => s.status === 'created' || s.status === 'disconnected' || !s.phone);
@@ -440,7 +456,7 @@ export class OpenWaService {
       return {
         success: false,
         gatewayUrl: workingUrl,
-        error: 'Unable to initialize OpenWA session container.'
+        error: 'OpenWA cloud engine is currently waking up from sleep (Render Free Tier). Please wait ~15-30 seconds and click Refresh QR.'
       };
     }
 
