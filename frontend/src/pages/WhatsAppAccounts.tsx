@@ -62,7 +62,6 @@ export const WhatsAppAccounts: React.FC = () => {
   const [qrConfirmed, setQrConfirmed] = useState(false);
   const [activeSessionInfo, setActiveSessionInfo] = useState<any>(null);
   const [isSessionAuthenticated, setIsSessionAuthenticated] = useState(false);
-  const [qrCountdown, setQrCountdown] = useState(25);
 
   // Test Message State
   const [testRecipient, setTestRecipient] = useState('');
@@ -113,7 +112,7 @@ export const WhatsAppAccounts: React.FC = () => {
     checkOpenWaHealth();
   }, []);
 
-  // Auto-poll QR code every 2 seconds while QR modal is open and QR is not yet displayed or paired
+  // Auto-poll QR code every 1.5 seconds while QR modal is open and sync directly with OpenWA's engine state
   useEffect(() => {
     let interval: any = null;
     if (showQrModal && !isSessionAuthenticated && !qrConfirmed) {
@@ -138,7 +137,7 @@ export const WhatsAppAccounts: React.FC = () => {
             }
           }
         } catch {}
-      }, 2000);
+      }, 1500);
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -178,30 +177,10 @@ export const WhatsAppAccounts: React.FC = () => {
     }
   };
 
-  // QR Countdown Timer: auto-refreshes when QR expires (25s cycle)
-  useEffect(() => {
-    let timer: any = null;
-    if (showQrModal && qrDataUrl && !isSessionAuthenticated && !qrConfirmed && !qrLoading) {
-      timer = setInterval(() => {
-        setQrCountdown((prev) => {
-          if (prev <= 1) {
-            handleFetchLiveQr(false);
-            return 25;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [showQrModal, qrDataUrl, isSessionAuthenticated, qrConfirmed, qrLoading]);
-
   // 2. Fetch live dynamic QR from open-wa service
   const handleFetchLiveQr = async (forceNewSession = false, customSessionName?: string) => {
     setQrLoading(true);
     setFormError('');
-    setQrCountdown(25);
     setIsSessionAuthenticated(false);
 
     if (forceNewSession) {
@@ -224,7 +203,6 @@ export const WhatsAppAccounts: React.FC = () => {
 
       if (res.data.success) {
         setActiveSessionInfo(res.data);
-        setQrCountdown(25);
         if (res.data.isAuthenticated) {
           setIsSessionAuthenticated(true);
           if (res.data.phoneNumber) {
@@ -256,7 +234,6 @@ export const WhatsAppAccounts: React.FC = () => {
     setFormError('');
     setActiveSessionInfo(null);
     setIsSessionAuthenticated(false);
-    setQrCountdown(25);
   };
 
   // 3. Confirm open-wa QR Pairing
@@ -839,23 +816,29 @@ export const WhatsAppAccounts: React.FC = () => {
                       />
                     </div>
 
-                    {/* QR Expiration & Auto-Refresh Countdown Bar */}
-                    <div style={{ maxWidth: '272px', margin: '0 auto 16px auto', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Clock size={13} color={qrCountdown <= 5 ? '#f87171' : 'var(--accent-emerald)'} />
-                          <span>QR expires in: <strong style={{ color: qrCountdown <= 5 ? '#f87171' : 'var(--text-primary)' }}>{qrCountdown}s</strong></span>
-                        </span>
-                        <span style={{ fontSize: '0.72rem' }}>{qrLoading ? 'Regenerating...' : 'Auto-refreshes'}</span>
-                      </div>
-                      <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '9999px', overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${(qrCountdown / 25) * 100}%`,
-                          height: '100%',
-                          background: qrCountdown <= 5 ? '#f87171' : 'var(--accent-emerald)',
-                          transition: 'width 1s linear, background-color 0.3s ease'
-                        }} />
-                      </div>
+                    {/* Live Engine Stream Badge */}
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '6px 14px',
+                      borderRadius: '9999px',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      color: '#34d399',
+                      fontSize: '0.8rem',
+                      fontWeight: '500',
+                      marginBottom: '16px'
+                    }}>
+                      <span style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        boxShadow: '0 0 8px #10b981',
+                        display: 'inline-block'
+                      }} />
+                      <span>Live Engine QR Stream &bull; Auto-Syncing</span>
                     </div>
                   </div>
                 ) : (
