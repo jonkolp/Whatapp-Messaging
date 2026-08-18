@@ -64,6 +64,7 @@ FROM docker.io/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc
 # `docker run` of this image did not. The npm installs below pin --omit=dev explicitly, so this
 # changes nothing about which dependencies land in the image.
 ENV NODE_ENV=production
+ENV ENGINE_TYPE=baileys
 
 # Chrome for Testing has no linux-arm64 build, and Puppeteer's chromium snapshot
 # is x86_64-only on Linux too. So: amd64 uses Chrome for Testing (downloaded below)
