@@ -83,7 +83,7 @@ async function bootstrap() {
   }
 
   if (process.env.NODE_ENV !== 'test') {
-    server.listen(config.port, () => {
+    server.listen(config.port, '0.0.0.0', () => {
       console.log(`====================================================`);
       console.log(` WhatsApp Automation Backend is running!`);
       console.log(` Port: ${config.port}`);
