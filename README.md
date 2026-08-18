@@ -1,22 +1,45 @@
 # 🚀 WhatsApp Outreach & Automated Messaging Platform
 
-A full-stack, enterprise-grade WhatsApp automated outreach and campaign management system. Built with **React**, **Node.js / Express**, **SQLite (WASM)**, and **OpenWA (Native Baileys Protocol Engine)**.
+A full-stack, enterprise-grade WhatsApp automated outreach and campaign management system. Built with **React (Vite)**, **Node.js (Express)**, **SQLite (WASM)**, and **OpenWA (Native Baileys Protocol Engine)**.
+
+---
+
+## 📑 Table of Contents
+1. [🌟 Key Features](#-key-features)
+2. [🏗️ System Architecture](#️-system-architecture)
+3. [📋 Prerequisites](#-prerequisites)
+4. [⚡ Quick Start Guide (Team Setup)](#-quick-start-guide-team-setup)
+5. [🖥️ Detailed Dashboard User Guide](#️-detailed-dashboard-user-guide)
+   - [1. User Registration & Login](#1-user-registration--login)
+   - [2. Connecting WhatsApp Numbers (Live QR & Meta API)](#2-connecting-whatsapp-numbers-live-qr--meta-api)
+   - [3. Multi-Session Management (Multiple Phone Numbers)](#3-multi-session-management-multiple-phone-numbers)
+   - [4. Creating an Outreach Campaign](#4-creating-an-outreach-campaign)
+   - [5. Dynamic Message Templates & Placeholders](#5-dynamic-message-templates--placeholders)
+   - [6. Anti-Ban Safety Controls & Quiet Hours](#6-anti-ban-safety-controls--quiet-hours)
+   - [7. Campaign Execution, Live Tracking & Retries](#7-campaign-execution-live-tracking--retries)
+   - [8. CSV Report Export](#8-csv-report-export)
+   - [9. Logs, System Diagnostics & Audit Trail](#9-logs-system-diagnostics--audit-trail)
+   - [10. Settings & Webhook Endpoints](#10-settings--webhook-endpoints)
+6. [🧪 Running Automated Tests](#-running-automated-tests)
+7. [📁 Repository Structure](#-repository-structure)
+8. [🛡️ Security Best Practices](#️-security-best-practices)
 
 ---
 
 ## 🌟 Key Features
 
 * **Multi-Session WhatsApp Web Support:** Connect and run multiple WhatsApp numbers simultaneously via live dynamic QR codes.
-* **Meta Cloud API & OpenWA Dual Engine:** Seamlessly toggle between the official Meta Cloud API and OpenWA WhatsApp Web.
-* **Excel / CSV Contact Import:** Drag & drop spreadsheets, auto-detect columns, and preview parsed numbers.
-* **Multi-Country E.164 Normalization:** Automatically standardizes international numbers (Saudi Arabia `+966`, Egypt `+20`, UAE `+971`, USA `+1`, UK `+44`, and 190+ countries).
-* **Dynamic Message Placeholders:** Personalize messages dynamically with variables like `{{name}}`, `{{ad}}`, `{{city}}`, etc.
-* **Anti-Ban Protection Playbook:**
+* **Dual Engine Support:** Seamlessly toggle between **OpenWA (Baileys Engine)** and official **Meta WhatsApp Cloud API**.
+* **Excel & CSV Contact Parser:** Drag & drop spreadsheets with auto-detection of phone, name, and ad columns.
+* **Global E.164 Phone Normalization:** Automatically handles international country codes (Saudi Arabia `+966`, Egypt `+20`, UAE `+971`, USA `+1`, UK `+44`, etc.) and strips invalid characters.
+* **Dynamic Placeholders:** Personalize outgoing texts dynamically with variables like `{{name}}`, `{{ad}}`, `{{city}}`, etc.
+* **Anti-Ban Safety Playbook:**
   * 3–8s randomized dispatch jitter delays.
-  * Automatic opt-out detection (`STOP`, `إلغاء`, `unsubscribe`).
-  * Enforced quiet hours protection.
-* **Real-time Live Stream & Metrics:** Monitor sent, delivered, and failed message receipts in real time.
-* **CSV Export & Reporting:** Download timestamped delivery reports with single-click export.
+  * Automatic opt-out keyword detection (`STOP`, `إلغاء`, `unsubscribe`).
+  * Enforced quiet hours protection (11:00 PM – 8:00 AM).
+* **Live Message Delivery Matrix:** Track sent, delivered, and failed message receipts in real time.
+* **1-Click CSV Report Export:** Download formatted delivery reports with timestamps and error reasons.
+* **Glassmorphic Modern UI:** Dark-mode dashboard built with responsive navigation and delete confirmation modals.
 
 ---
 
@@ -27,13 +50,14 @@ A full-stack, enterprise-grade WhatsApp automated outreach and campaign manageme
 │                   Frontend (React + Vite)                   │
 │                    http://localhost:3000                    │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ REST / Axios
+                               │ REST / Axios (JWT Auth)
 ┌──────────────────────────────▼──────────────────────────────┐
 │                  Backend (Express + Node.js)                │
 │                    http://localhost:5000                    │
-│      • SQLite Database (sql.js WASM)                        │
-│      • Background Dispatcher & Rate Pacing Worker           │
-│      • E.164 Phone Normalization & Crypto Service           │
+│      • SQLite Database (sql.js WASM Engine)                 │
+│      • Native Background Dispatcher & Rate Pacer            │
+│      • E.164 Multi-Country Phone Normalizer                 │
+│      • AES-256-GCM Token Encryption Service                 │
 └──────────────┬───────────────────────────────┬──────────────┘
                │                               │
 ┌──────────────▼──────────────┐ ┌──────────────▼──────────────┐
@@ -47,10 +71,10 @@ A full-stack, enterprise-grade WhatsApp automated outreach and campaign manageme
 
 ## 📋 Prerequisites
 
-Make sure your machine has the following installed:
+Ensure the following tools are installed on your system:
 * [Node.js](https://nodejs.org/) (v18 or v20+ recommended)
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for running the OpenWA WhatsApp engine)
-* [Git](https://git-scm.com/)
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (to run the OpenWA container)
+* [GitHub Desktop](https://desktop.github.com/) (or Git CLI)
 
 ---
 
@@ -65,29 +89,29 @@ cd "Whatapp Messaging"
 ---
 
 ### 2. Launch the OpenWA WhatsApp Engine (Docker)
-In a terminal, start the Baileys protocol container:
+Open a terminal and start the OpenWA Baileys container:
 ```bash
 cd OpenWA
 docker compose up -d
 cd ..
 ```
-> **Verification:** Open `http://localhost:2785` in your browser. You should see the OpenWA service dashboard running.
+> **Verification:** Open `http://localhost:2785` in your browser. You should see the OpenWA status dashboard.
 
 ---
 
-### 3. Start the Backend Server
+### 3. Start the Backend API Server
 In a new terminal window:
 ```bash
 cd backend
 npm install
 npm run dev
 ```
-> Backend runs on **`http://localhost:5000`** with the SQLite database automatically initialized.
+> Backend starts on **`http://localhost:5000`** with SQLite automatically initialized.
 
 ---
 
 ### 4. Start the Frontend Dashboard
-In another terminal window:
+In a separate terminal window:
 ```bash
 cd frontend
 npm install
@@ -97,27 +121,137 @@ npm run dev
 
 ---
 
-## 📱 How to Use the Dashboard
+## 🖥️ Detailed Dashboard User Guide
 
-### 1. Connect a WhatsApp Number
-1. Navigate to **Connected Numbers** (`/whatsapp`).
-2. Click **"Pair Number via Live QR"**.
-3. Open WhatsApp on your phone $\rightarrow$ **Linked Devices** $\rightarrow$ **Link a Device** $\rightarrow$ Scan the QR code on your screen.
-4. Enter your phone number (e.g. `+966500000000`) and click **"Save & Register Session"**.
-5. *(Optional)* Click **"Add Additional Session"** to connect a second or third WhatsApp phone!
+### 1. User Registration & Login
+1. Open `http://localhost:3000` in your browser.
+2. If you don't have an account, click **"Register"** to create a local account with your email and password.
+3. Once logged in, your session is authenticated via JWT and stored securely in `localStorage`.
 
-### 2. Launch an Outreach Campaign
-1. Go to **Campaigns** $\rightarrow$ **"New Campaign"**.
-2. **Step 1:** Select your connected WhatsApp number and upload an Excel or CSV file (you can use the included `sample_contacts.csv`).
-3. **Step 2:** Map your phone and name/ad columns.
-4. **Step 3:** Compose your message using `{{name}}` or `{{ad}}`.
-5. **Step 4:** Review anti-ban pacing and click **"Launch Campaign"**.
+---
+
+### 2. Connecting WhatsApp Numbers (Live QR & Meta API)
+Navigate to **WhatsApp Numbers** (`/whatsapp`) from the left sidebar:
+
+#### Option A: Pair via Live QR (OpenWA Engine)
+1. Click **"Pair Number via Live QR"**.
+2. A modal will appear displaying a live dynamic QR code streamed directly from the Baileys engine.
+3. Open WhatsApp on your mobile phone:
+   * Go to **Settings** $\rightarrow$ **Linked Devices** $\rightarrow$ **Link a Device**.
+   * Scan the QR code shown on your dashboard.
+4. Enter your phone number with country code (e.g. `+966500000001` or `+201128247939`) and give the account a label (e.g. `Sales Team Riyadh`).
+5. Click **"Save & Register Session"**.
+
+#### Option B: Connect Official Meta Cloud API
+1. Click **"Connect Meta Cloud API"**.
+2. Enter your credentials from the [Meta for Developers Portal](https://developers.facebook.com/):
+   * **Phone Number (E.164):** e.g. `+966500000000`
+   * **Phone Number ID:** (from your WhatsApp App dashboard)
+   * **WABA ID:** (WhatsApp Business Account ID)
+   * **Access Token:** Permanent System User Access Token
+3. Click **"Save & Connect"**.
+
+---
+
+### 3. Multi-Session Management (Multiple Phone Numbers)
+You can connect and run **multiple WhatsApp numbers simultaneously**:
+* Click **"Add Additional Session"** on the WhatsApp Numbers page.
+* Each session receives a unique identifier (e.g., `session-2`, `sales-rep-2`).
+* When launching campaigns, you can choose which connected phone number dispatches that specific campaign.
+* **Auto-Sync Detected Sessions:** If an existing session is already paired on your Docker engine, the dashboard will display an **"Active Connected Session Found"** prompt allowing you to sync it with 1 click.
+* **Session Deletion:** Clicking the red trash icon on any account card cleanly disconnects the session from Docker and deletes it from the database.
+
+---
+
+### 4. Creating an Outreach Campaign
+Click **"New Campaign"** (or go to `/campaigns/new`) to open the 4-step wizard:
+
+#### Step 1: Campaign Details & Spreadsheet Upload
+* **Campaign Name:** Enter a descriptive name (e.g. `Haraj Riyadh Car Inquiries`).
+* **Sender WhatsApp Number:** Select which connected number will send the messages.
+* **Upload Excel / CSV:** Drag & drop your `.xlsx`, `.xls`, or `.csv` contact spreadsheet (or use the included `sample_contacts.csv`).
+
+#### Step 2: Column Mapping & Live Number Validation
+* The system automatically scans your spreadsheet headers.
+* Map the required fields:
+  * **Phone Number Column:** (e.g. `Phone Number`, `جوال`, `Mobile`)
+  * **Contact Name Column:** (e.g. `Name`, `الاسم`)
+  * **Ad Title / Custom Column:** (e.g. `Ad Title`, `الإعلان`)
+* Click **"Validate & Preview"** to inspect how numbers are cleaned into standard international E.164 formats (+966, +20, etc.).
+
+#### Step 3: Message Template & Dynamic Placeholders
+* Write your message body. Insert variables inside double curly braces:
+  ```text
+  السلام عليكم ورحمة الله يا {{name}}، بخصوص إعلانك "{{ad}}"، هل السلعة ما زالت متوفرة؟
+  ```
+* Review the live WhatsApp chat preview box to see how the rendered message will appear to recipients.
+
+#### Step 4: Safety Guardrails & Dispatch
+* Verify the safety settings:
+  * **Anti-Ban Randomized Jitter:** Enforces 3–8s delays between outgoing messages.
+  * **Quiet Hours Protection:** Check this box to prevent dispatches between 11:00 PM and 8:00 AM in the recipient's timezone.
+* Click **"Launch Campaign"**.
+
+---
+
+### 5. Dynamic Message Templates & Placeholders
+You can use any column header from your uploaded file as a variable:
+| Variable Syntax | Spreadsheet Column | Example Output |
+|---|---|---|
+| `{{name}}` | Name, الاسم | Ahmed Al-Otaibi |
+| `{{ad}}` | Ad Title, الإعلان | Toyota Camry 2023 |
+| `{{city}}` | City, المدينة | Riyadh |
+
+---
+
+### 6. Anti-Ban Safety Controls & Quiet Hours
+The platform includes built-in anti-ban protection to safeguard your numbers:
+1. **Randomized Delay Jitter:** Adds random intervals (3 to 8 seconds) between consecutive message dispatches.
+2. **Opt-Out Watcher:** Automatically detects recipient opt-out keywords (`STOP`, `إلغاء`, `وقف`, `unsubscribe`) and halts further automated outreach to that number.
+3. **Quiet Hours Protection:** Prevents midnight messaging disruptions.
+
+---
+
+### 7. Campaign Execution, Live Tracking & Retries
+Once launched, you are redirected to the **Campaign Details** view (`/campaigns/:id`):
+* **Execution Progress Bar:** Shows real-time percentage completed.
+* **Metrics Matrix:** Live counts for `Total Contacts`, `Sent`, `Delivered`, and `Failed`.
+* **Action Controls:**
+  * **Pause:** Temporarily suspend outgoing message queue.
+  * **Start / Resume:** Continue message dispatching.
+  * **Retry Failed:** Re-attempts delivery for numbers that encountered network timeouts.
+  * **Cancel:** Halts all pending unsent contacts.
+  * **Delete:** Permanently removes the campaign and message history.
+
+---
+
+### 8. CSV Report Export
+On any campaign details page, click **"Export CSV"** to download a spreadsheet containing:
+* Recipient phone number (E.164 format)
+* Delivery status (`SENT`, `DELIVERED`, `FAILED`, `PENDING`)
+* Timestamp of delivery
+* Error details (if any delivery failed)
+
+---
+
+### 9. Logs, System Diagnostics & Audit Trail
+Navigate to **Diagnostics** (`/logs`) from the sidebar:
+* **Messages Tab:** Inspect all outgoing WhatsApp delivery receipts, recipient phone numbers, and timestamps.
+* **Backend Errors Tab:** Inspect raw server logs, network connection warnings, and stack traces.
+* **Clear Logs:** Click **"Clear Logs"** with confirmation modal to purge error history from SQLite.
+
+---
+
+### 10. Settings & Webhook Endpoints
+Navigate to **Settings** (`/settings`):
+* **Meta Inbound Webhook:** View the webhook URL (`/api/v1/webhooks/meta-whatsapp`) and verify token for Meta Cloud API integration.
+* **n8n Automation Engine:** View the dispatch endpoint for workflow automation.
 
 ---
 
 ## 🧪 Running Automated Tests
 
-Run the full integration test suite (covering crypto security, E.164 multi-country normalization, opt-out keywords, open-wa health, and atomic transactions):
+Run the full integration test suite in the backend directory:
 
 ```bash
 cd backend
@@ -129,31 +263,31 @@ npm test
 ## 📁 Repository Structure
 
 ```
-├── backend/                  # Express REST API & Workers
+├── backend/                  # Express REST API Server
 │   ├── src/
-│   │   ├── controllers/      # Route controllers (Campaign, WhatsApp, Auth, File)
+│   │   ├── controllers/      # Route handlers (Campaign, WhatsApp, Auth, File)
 │   │   ├── services/         # OpenWA, Phone, Crypto, and Logger services
 │   │   ├── db/               # SQLite WASM database schema & migrations
-│   │   └── routes/           # Express API route declarations
+│   │   └── routes/           # API route declarations
 │   ├── tests/                # Jest integration test suites
 │   └── uploads/              # Local storage for uploaded spreadsheets
 │
 ├── frontend/                 # React + Vite Glassmorphic Dashboard
 │   ├── src/
-│   │   ├── pages/            # Dashboard, CampaignsList, CampaignWizard, WhatsAppAccounts
+│   │   ├── pages/            # Dashboard, Campaigns, Wizard, WhatsApp, Logs
 │   │   ├── components/       # Header, Sidebar, ConfirmModal
-│   │   └── api/              # Axios instance & interceptors
+│   │   └── api/              # Axios instance & JWT interceptor
 │
 ├── OpenWA/                   # Baileys Protocol Docker Service
 │   └── docker-compose.yml    # Engine container configuration on port 2785
 │
 ├── sample_contacts.csv       # Sample spreadsheet for testing campaigns
-└── README.md                 # Project documentation
+└── README.md                 # Full project documentation
 ```
 
 ---
 
 ## 🛡️ Security Best Practices
 
-* **Sensitive Tokens:** WhatsApp tokens and API keys are AES-256-GCM encrypted in the database.
-* **Secrets Management:** Never commit `.env` or session files to GitHub (these are pre-configured in `.gitignore`).
+* **AES-256-GCM Encryption:** All WhatsApp tokens and access keys are encrypted before storage in SQLite.
+* **Pre-configured `.gitignore`:** Passwords, `.env` files, `.sqlite` databases, and session directories are excluded from Git commits.
