@@ -220,11 +220,11 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expose port
-EXPOSE 2785
+EXPOSE 2785 10000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:2785/api/health/ready || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=5 \
+    CMD curl -f http://localhost:${PORT:-2785}/api/health/ready || curl -f http://localhost:2785/api/health/ready || curl -f http://localhost:10000/api/health/ready || exit 1
 
 # dumb-init is PID 1 and handles signal forwarding.
 # It execs docker-entrypoint.sh (as root), which fixes volume ownership and
