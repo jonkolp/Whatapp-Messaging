@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import http from 'http';
+import path from 'path';
+import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config';
 import { initDatabase } from './db';
@@ -38,6 +40,26 @@ app.get('/health', (_req, res) => {
 
 // API Routes
 app.use('/api/v1', apiRouter);
+
+// Serve Frontend Static Assets (Full-stack Render Deployment)
+const possibleDistPaths = [
+  path.resolve(process.cwd(), 'frontend/dist'),
+  path.resolve(__dirname, '../../frontend/dist'),
+  path.resolve(__dirname, '../frontend/dist')
+];
+
+for (const distPath of possibleDistPaths) {
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/') || req.path === '/health') {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+    break;
+  }
+}
 
 // Global Error Handler Middleware
 app.use(errorHandler);

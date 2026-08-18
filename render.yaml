@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: whatsapp-dashboard
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        value: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - key: OPENWA_GATEWAY_URL
+        value: http://localhost:2785
+      - key: META_VERIFY_TOKEN
+        value: whatsapp_meta_verify_token_123
