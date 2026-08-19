@@ -160,7 +160,8 @@ export class CampaignController {
       const { id } = req.params;
 
       const campaign: any = db.prepare(`
-        SELECT c.*, w.phone_number_id, w.encrypted_access_token, w.gateway_url, w.provider_type
+        SELECT c.*, w.account_name, w.phone_number as sender_phone, w.phone_number_id, 
+               w.encrypted_access_token, w.gateway_url, w.provider_type, w.session_id, w.encrypted_api_key
         FROM campaigns c
         JOIN whatsapp_accounts w ON c.whatsapp_account_id = w.id
         WHERE c.id = ? AND c.user_id = ?
@@ -216,6 +217,11 @@ export class CampaignController {
 
       db.prepare("UPDATE campaigns SET status = 'RUNNING', started_at = datetime('now') WHERE id = ?").run(id);
 
+      let openWaApiKey = undefined;
+      if (campaign.encrypted_api_key) {
+        openWaApiKey = CryptoService.decrypt(campaign.encrypted_api_key);
+      }
+
       const dispatchPayload = {
         campaignId: campaign.id,
         userId: req.user?.id || '',
@@ -223,7 +229,9 @@ export class CampaignController {
         senderConfig: {
           phoneNumberId: campaign.phone_number_id,
           accessToken: accessToken,
-          openWaUrl: campaign.gateway_url
+          openWaUrl: campaign.gateway_url,
+          sessionId: campaign.session_id,
+          apiKey: openWaApiKey
         },
         callbackUrl: `http://localhost:${config.port}/api/v1/webhooks/n8n/status`,
         callbackSecret: config.n8nCallbackSecret,

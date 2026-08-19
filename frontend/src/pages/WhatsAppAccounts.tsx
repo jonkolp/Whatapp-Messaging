@@ -385,7 +385,7 @@ export const WhatsAppAccounts: React.FC = () => {
 
           <button
             className="btn-secondary"
-            onClick={() => handleFetchLiveQr(false)}
+            onClick={() => handleFetchLiveQr(true)}
             disabled={qrLoading}
             style={{ border: '1px solid rgba(16, 185, 129, 0.4)' }}
           >
@@ -446,7 +446,7 @@ export const WhatsAppAccounts: React.FC = () => {
               <Plus size={16} />
               <span>Connect Meta Cloud API</span>
             </button>
-            <button className="btn-secondary" onClick={() => handleFetchLiveQr(false)}>
+            <button className="btn-secondary" onClick={() => handleFetchLiveQr(true)}>
               <QrCode size={16} color="var(--accent-emerald)" />
               <span>Pair WhatsApp via Live QR</span>
             </button>

@@ -19,6 +19,8 @@ export interface N8nDispatchPayload {
     phoneNumberId?: string;
     accessToken?: string;
     openWaUrl?: string;
+    sessionId?: string;
+    apiKey?: string;
   };
   callbackUrl: string;
   callbackSecret: string;

@@ -467,29 +467,23 @@ export class OpenWaService {
       }
     }
 
-    // If still no target session, look for unauthenticated/waiting session, or create unique fallback
+    // If still no target session, create a dedicated new session for this user/request
     if (!targetSession) {
-      if (allSessions.length === 0) {
-        // Create initial session with unique slug
-        try {
-          const fallbackName = `wa-${Date.now().toString().slice(-6)}`;
-          const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: fallbackName }, { headers, timeout: 12000 });
-          if (createRes.data?.id) {
-            targetSession = createRes.data;
-          }
-        } catch (err: any) {
-          // If 409 or list was delayed, try re-fetching
+      try {
+        const uniqueName = cleanRequestedName || `wa-${Date.now().toString().slice(-6)}`;
+        const createRes = await axios.post(`${workingUrl}/api/sessions`, { name: uniqueName }, { headers, timeout: 12000 });
+        if (createRes.data?.id) {
+          targetSession = createRes.data;
+        }
+      } catch (err: any) {
+        if (err.response?.status === 409) {
           try {
             const listRes = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 8000 });
-            if (Array.isArray(listRes.data) && listRes.data.length > 0) {
-              targetSession = listRes.data[0];
+            if (Array.isArray(listRes.data)) {
+              targetSession = listRes.data.find(s => this.sanitizeSessionName(s.name) === cleanRequestedName);
             }
           } catch {}
         }
-      } else {
-        // Pick waiting session first if available
-        const waiting = allSessions.find(s => s.status === 'created' || s.status === 'disconnected' || !s.phone);
-        targetSession = waiting || allSessions[0];
       }
     }
 
@@ -497,7 +491,7 @@ export class OpenWaService {
       return {
         success: false,
         gatewayUrl: workingUrl,
-        error: 'OpenWA cloud engine is currently waking up from sleep (Render Free Tier). Please wait ~15-30 seconds and click Refresh QR.'
+        error: 'OpenWA cloud engine is currently waking up or initializing. Please wait ~15-30 seconds and try again.'
       };
     }
 
@@ -612,76 +606,32 @@ export class OpenWaService {
     const headers = this.getHeaders(apiKey);
     const chatId = `${cleanPhone}@c.us`;
 
-    let targetSessionId = sessionId;
+    const targetSessionId = sessionId;
 
-    // If no sessionId specified, find the first ready session
     if (!targetSessionId) {
-      try {
-        const sessionList = await axios.get(`${workingUrl}/api/sessions`, { headers, timeout: 3000 });
-        if (Array.isArray(sessionList.data) && sessionList.data.length > 0) {
-          const readySession = sessionList.data.find((s: any) =>
-            s.status === 'ready' || s.status === 'connected' || s.status === 'authenticated' || s.phone
-          );
-          if (readySession) {
-            targetSessionId = readySession.id;
-          } else {
-            targetSessionId = sessionList.data[0].id;
-          }
-        }
-      } catch {}
+      throw new Error('WhatsApp session ID is missing for this account. Please reconnect your number in WhatsApp Numbers.');
     }
 
-    // 1. Try OpenWA Session Route: POST /api/sessions/:sessionId/messages/send-text
-    if (targetSessionId) {
-      try {
-        const res = await axios.post(`${workingUrl}/api/sessions/${targetSessionId}/messages/send-text`, {
-          chatId,
-          text: content
-        }, { headers, timeout: 15000 });
-        return res.data;
-      } catch (err: any) {
-        const status = err.response?.status;
-        const msg = err.response?.data?.message || err.response?.data?.error;
-        if (status === 400 && (msg?.includes('not active') || msg?.includes('not ready') || msg?.includes('not authenticated'))) {
-          throw new Error('WhatsApp session is not paired or active. Please open "WhatsApp Numbers" and scan the live QR code.');
-        }
-        if (status === 409) {
-          throw new Error('WhatsApp engine is initializing. Please wait a few moments and try again.');
-        }
-        if (status !== 404) {
-          throw new Error(msg || err.message || 'Failed to send message via OpenWA session.');
-        }
-      }
-    }
-
-    // 2. Fallback Route A: POST /api/messages/send-text
+    // Strictly send to the assigned OpenWA Session
     try {
-      const res = await axios.post(`${workingUrl}/api/messages/send-text`, {
+      const res = await axios.post(`${workingUrl}/api/sessions/${targetSessionId}/messages/send-text`, {
         chatId,
         text: content
       }, { headers, timeout: 15000 });
       return res.data;
-    } catch {}
-
-    // 3. Fallback Route B: POST /api/messages/sendText (classic open-wa)
-    try {
-      const res = await axios.post(`${workingUrl}/api/messages/sendText`, {
-        to: chatId,
-        content: content
-      }, { headers, timeout: 15000 });
-      return res.data;
-    } catch {}
-
-    // 4. Fallback Route C: POST /api/sendText
-    try {
-      const res = await axios.post(`${workingUrl}/api/sendText`, {
-        to: chatId,
-        content: content
-      }, { headers, timeout: 15000 });
-      return res.data;
-    } catch (finalErr: any) {
-      const errMsg = finalErr.response?.data?.message || finalErr.response?.data?.error || finalErr.message || 'OpenWA message endpoint unreachable.';
-      throw new Error(`OpenWA message delivery failed: ${errMsg}`);
+    } catch (err: any) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.message || err.response?.data?.error;
+      if (status === 400 && (msg?.includes('not active') || msg?.includes('not ready') || msg?.includes('not authenticated') || msg?.includes('closed'))) {
+        throw new Error(`WhatsApp session (${targetSessionId}) is disconnected or not authenticated. Please scan QR in WhatsApp Numbers.`);
+      }
+      if (status === 404) {
+        throw new Error(`WhatsApp session (${targetSessionId}) not found on gateway. Please re-pair your number in WhatsApp Numbers.`);
+      }
+      if (status === 409) {
+        throw new Error('WhatsApp engine session is currently initializing. Please wait a moment and retry.');
+      }
+      throw new Error(msg || err.message || `OpenWA message delivery failed for session ${targetSessionId}`);
     }
   }
 
