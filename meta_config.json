@@ -1,0 +1,11 @@
+{
+  "phone_number_id": "YOUR_META_PHONE_NUMBER_ID",
+  "access_token": "YOUR_PERMANENT_SYSTEM_USER_ACCESS_TOKEN",
+  "template_name": "haraj_ad_inquiry",
+  "language_code": "ar",
+  "api_version": "v20.0",
+  "excel_file": "haraj_numbers.xlsx",
+  "sheet_name": "Sheet1",
+  "delay_seconds": 3,
+  "max_retries": 3
+}

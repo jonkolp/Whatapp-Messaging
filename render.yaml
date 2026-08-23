@@ -1,5 +1,5 @@
 services:
-  # 1. Main Full-Stack Web App (React Dashboard + Node Backend API + SQLite)
+  # 1. Main Full-Stack Web App (React Dashboard + Node Backend API + SQLite + Meta Webhooks)
   - type: web
     name: whatsapp-dashboard
     runtime: node
@@ -53,4 +53,3 @@ services:
         value: off
       - key: WWEBJS_AUTH_TIMEOUT_MS
         value: 120000
-

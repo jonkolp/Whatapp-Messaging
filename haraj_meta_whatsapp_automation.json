@@ -1,0 +1,254 @@
+{
+  "name": "Haraj WhatsApp Auto-Sender (Official Meta Cloud API)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🚀 Official Meta WhatsApp Cloud API Automation\n\n**Isolation Notice:** This workflow is completely separate from open-wa. It uses its own tracking key (`sentPhonesMeta`) and official Meta Cloud API endpoints.\n\n### ⚙️ Quick Configuration:\n1. Open the **\"Meta Credentials & Config\"** node below.\n2. Paste your **`phoneNumberId`** (from Meta Developer Portal).\n3. Paste your **`accessToken`** (Permanent System User Token).\n4. Set your approved **`templateName`** (default: `haraj_ad_inquiry`).\n5. Make sure `/files/haraj_numbers.xlsx` (or `/files/Test.xlsx`) is mounted in Docker.\n6. Click **Execute Workflow** to start sending!",
+        "height": 520,
+        "width": 540
+      },
+      "id": "meta_notes",
+      "name": "Meta Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1420, -100]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "phoneNumberId",
+              "value": "YOUR_META_PHONE_NUMBER_ID"
+            },
+            {
+              "name": "accessToken",
+              "value": "YOUR_PERMANENT_META_ACCESS_TOKEN"
+            },
+            {
+              "name": "templateName",
+              "value": "haraj_ad_inquiry"
+            },
+            {
+              "name": "languageCode",
+              "value": "ar"
+            },
+            {
+              "name": "filePath",
+              "value": "/files/haraj_numbers.xlsx"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "metaConfig",
+      "name": "Meta Credentials & Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [-1180, 200]
+    },
+    {
+      "parameters": {},
+      "id": "manualTrigger",
+      "name": "When clicking Execute",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1420, 200]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "={{ $node[\"Meta Credentials & Config\"].json.filePath }}",
+        "options": {}
+      },
+      "id": "readFile",
+      "name": "Read Numbers File",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [-940, 200]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "id": "parseExcel",
+      "name": "Parse Excel Rows",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [-720, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Separate tracking namespace for Meta API to prevent collision with open-wa\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhonesMeta) staticData.sentPhonesMeta = {};\n\nconst allRows = items.map(item => item.json);\nconst unsent = allRows.filter(row => {\n  const phone = String(row.phone || '').replace(/\\D/g, '');\n  return !staticData.sentPhonesMeta[phone];\n});\n\nreturn unsent.map(row => ({ json: row }));"
+      },
+      "id": "filterUnsentMeta",
+      "name": "Filter Unsent (Meta Dedicated)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 200]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loopBatches",
+      "name": "Loop Over Numbers",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-280, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $json;\nconst config = $('Meta Credentials & Config').item.json;\n\n// Normalize phone to E.164 without '+' sign (e.g. 9665XXXXXXXX)\nlet phone = String(row.phone || '').replace(/\\D/g, '');\nif (phone.startsWith('05') && phone.length === 10) {\n  phone = '966' + phone.substring(1);\n} else if (phone.startsWith('5') && phone.length === 9) {\n  phone = '966' + phone;\n}\n\nconst adTitle = String(row.ad || 'الإعلان').trim();\n\n// Meta WhatsApp Cloud API Template Payload format\nconst metaPayload = {\n  messaging_product: 'whatsapp',\n  recipient_type: 'individual',\n  to: phone,\n  type: 'template',\n  template: {\n    name: config.templateName || 'haraj_ad_inquiry',\n    language: {\n      code: config.languageCode || 'ar'\n    },\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          {\n            type: 'text',\n            text: adTitle\n          }\n        ]\n      }\n    ]\n  }\n};\n\nreturn [{\n  json: {\n    ...row,\n    cleanPhone: phone,\n    metaPayload,\n    apiUrl: `https://graph.facebook.com/v20.0/${config.phoneNumberId}/messages`,\n    authHeader: `Bearer ${config.accessToken}`\n  }\n}];"
+      },
+      "id": "prepareMetaPayload",
+      "name": "Prepare Meta Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-60, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.apiUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ $json.authHeader }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.metaPayload) }}",
+        "options": {
+          "timeout": 25000
+        }
+      },
+      "id": "sendMetaAPI",
+      "name": "Send via Meta Cloud API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [160, 120],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.messages?.[0]?.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "checkMetaSuccess",
+      "name": "Sent OK? (Meta)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [380, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhonesMeta) staticData.sentPhonesMeta = {};\n\nconst item = $('Prepare Meta Payload').item.json;\nconst phone = item.cleanPhone;\nconst msgId = $json.messages?.[0]?.id || 'unknown_id';\n\nstaticData.sentPhonesMeta[phone] = {\n  sent_at: new Date().toISOString(),\n  meta_msg_id: msgId\n};\n\nreturn [{ json: { ...item, meta_msg_id: msgId, success: true } }];"
+      },
+      "id": "markSentMeta",
+      "name": "Mark As Sent (Meta)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nif (!staticData.sentPhonesMeta) staticData.sentPhonesMeta = {};\nif (!staticData.failCountsMeta) staticData.failCountsMeta = {};\n\nconst item = $('Prepare Meta Payload').item.json;\nconst phone = item.cleanPhone;\nconst errorMessage = $json.error?.message || (typeof $json === 'string' ? $json : JSON.stringify($json));\n\nstaticData.failCountsMeta[phone] = (staticData.failCountsMeta[phone] || 0) + 1;\n\nconst MAX_RETRIES = 3;\nlet gaveUp = false;\nif (staticData.failCountsMeta[phone] >= MAX_RETRIES) {\n  staticData.sentPhonesMeta[phone] = {\n    sent_at: new Date().toISOString(),\n    gaveUpAfterError: errorMessage\n  };\n  gaveUp = true;\n}\n\nreturn [{ json: { ...item, error: errorMessage, attempt: staticData.failCountsMeta[phone], gaveUp, success: false } }];"
+      },
+      "id": "markErrorMeta",
+      "name": "Log Error (Meta)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 220]
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "seconds"
+      },
+      "id": "waitDelayMeta",
+      "name": "Wait 3 Seconds Before Next",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [820, 120]
+    },
+    {
+      "parameters": {},
+      "id": "allDoneMeta",
+      "name": "All Done (Meta)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-280, 380]
+    }
+  ],
+  "connections": {
+    "When clicking Execute": {
+      "main": [[{ "node": "Meta Credentials & Config", "type": "main", "index": 0 }]]
+    },
+    "Meta Credentials & Config": {
+      "main": [[{ "node": "Read Numbers File", "type": "main", "index": 0 }]]
+    },
+    "Read Numbers File": {
+      "main": [[{ "node": "Parse Excel Rows", "type": "main", "index": 0 }]]
+    },
+    "Parse Excel Rows": {
+      "main": [[{ "node": "Filter Unsent (Meta Dedicated)", "type": "main", "index": 0 }]]
+    },
+    "Filter Unsent (Meta Dedicated)": {
+      "main": [[{ "node": "Loop Over Numbers", "type": "main", "index": 0 }]]
+    },
+    "Loop Over Numbers": {
+      "main": [
+        [{ "node": "All Done (Meta)", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Meta Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Meta Payload": {
+      "main": [[{ "node": "Send via Meta Cloud API", "type": "main", "index": 0 }]]
+    },
+    "Send via Meta Cloud API": {
+      "main": [[{ "node": "Sent OK? (Meta)", "type": "main", "index": 0 }]]
+    },
+    "Sent OK? (Meta)": {
+      "main": [
+        [{ "node": "Mark As Sent (Meta)", "type": "main", "index": 0 }],
+        [{ "node": "Log Error (Meta)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark As Sent (Meta)": {
+      "main": [[{ "node": "Wait 3 Seconds Before Next", "type": "main", "index": 0 }]]
+    },
+    "Log Error (Meta)": {
+      "main": [[{ "node": "Wait 3 Seconds Before Next", "type": "main", "index": 0 }]]
+    },
+    "Wait 3 Seconds Before Next": {
+      "main": [[{ "node": "Loop Over Numbers", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
